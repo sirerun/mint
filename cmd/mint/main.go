@@ -26,6 +26,8 @@ func run(args []string) int {
 		return 0
 	case "mcp":
 		return runMCP(args[1:])
+	case "validate":
+		return runValidate(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\nRun 'mint help' for usage.\n", args[0])
 		return 1
@@ -40,6 +42,7 @@ Usage:
 
 Commands:
   mcp         MCP server generation commands
+  validate    Validate an OpenAPI spec for correctness
   version     Print the version
   help        Show this help message
 
