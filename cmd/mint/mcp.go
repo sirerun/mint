@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"go.yaml.in/yaml/v4"
+
 	"github.com/sirerun/mint/internal/loader"
 	"github.com/sirerun/mint/internal/mcpgen"
 	"github.com/sirerun/mint/internal/mcpgen/golang"
@@ -36,6 +38,7 @@ func runMCPGenerate(args []string) int {
 	excludePaths := fs.String("exclude-paths", "", "Exclude paths matching this pattern (comma-separated)")
 	authHeader := fs.String("auth-header", "", "Custom auth header name (overrides spec)")
 	authEnv := fs.String("auth-env", "", "Custom env var for auth token (overrides spec)")
+	toolNames := fs.String("tool-names", "", "YAML file mapping original tool names to custom names")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -70,6 +73,15 @@ func runMCPGenerate(args []string) int {
 		server.Tools = mcpgen.FilterByPaths(server.Tools, patterns)
 	}
 
+	if *toolNames != "" {
+		mapping, err := loadToolNameMapping(*toolNames)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading tool names: %v\n", err)
+			return 1
+		}
+		server.Tools = mcpgen.RenameTools(server.Tools, mapping)
+	}
+
 	if *authHeader != "" && server.Auth != nil {
 		server.Auth.HeaderName = *authHeader
 	}
@@ -90,6 +102,18 @@ func runMCPGenerate(args []string) int {
 	return 0
 }
 
+func loadToolNameMapping(path string) (map[string]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading file: %w", err)
+	}
+	var mapping map[string]string
+	if err := yaml.Unmarshal(data, &mapping); err != nil {
+		return nil, fmt.Errorf("parsing YAML: %w", err)
+	}
+	return mapping, nil
+}
+
 func printMCPUsage() {
 	fmt.Print(`mint mcp - MCP server generation commands.
 
@@ -105,6 +129,7 @@ Flags for 'generate':
   --exclude-paths <pat>  Exclude paths matching patterns (comma-separated)
   --auth-header <name>   Custom auth header name
   --auth-env <var>       Custom env var for auth token
+  --tool-names <file>    YAML file mapping original tool names to custom names
 
 Run 'mint mcp generate --help' for more information.
 `)
