@@ -1,0 +1,70 @@
+package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+)
+
+// Server wraps the MCP server and HTTP client.
+type Server struct {
+	mcpServer *server.MCPServer
+	client    *APIClient
+}
+
+// NewServer creates a new MCP server with all tools registered.
+func NewServer(baseURL, apiKey string) *Server {
+	s := &Server{
+		client: NewAPIClient(baseURL, apiKey),
+	}
+
+	mcpSrv := server.NewMCPServer(
+		"{{.Name}}",
+		"{{.Version}}",
+		server.WithToolCapabilities(true),
+	)
+{{range .Tools}}
+	mcpSrv.AddTool(
+		mcp.Tool{
+			Name:        "{{.Name}}",
+			Description: "{{.Description}}",
+			InputSchema: mcp.ToolInputSchema{
+				Type: "object",
+				Properties: map[string]interface{}{
+{{- range $key, $val := .InputSchema.Properties}}
+					"{{$key}}": map[string]interface{}{
+						"type":        "{{$val.Type}}",
+{{- if $val.Description}}
+						"description": "{{$val.Description}}",
+{{- end}}
+{{- if $val.Format}}
+						"format":      "{{$val.Format}}",
+{{- end}}
+					},
+{{- end}}
+				},
+{{- if .InputSchema.Required}}
+				Required: []string{ {{- range $i, $r := .InputSchema.Required}}{{if $i}}, {{end}}"{{$r}}"{{end -}} },
+{{- end}}
+			},
+		},
+		s.handle{{exportName .Name}},
+	)
+{{end}}
+	s.mcpServer = mcpSrv
+	return s
+}
+
+// ServeStdio starts the server using stdio transport.
+func (s *Server) ServeStdio() error {
+	srv := server.NewStdioServer(s.mcpServer)
+	return srv.Listen(context.Background(), os.Stdin, os.Stdout)
+}
+
+// ServeSSE starts the server using SSE transport.
+func (s *Server) ServeSSE(addr string) error {
+	srv := server.NewSSEServer(s.mcpServer)
+	return srv.Start(addr)
+}
