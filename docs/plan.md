@@ -357,18 +357,18 @@ Generates a complete, deployable Go MCP server project from the MCP model.
 
 ### Epic E10: MCP Server Generation -- Advanced Features
 
-- [ ] T10.1 Implement authentication passthrough configuration  Owner: TBD  Est: 1.5h
+- [x] T10.1 Implement authentication passthrough configuration  Owner: TBD  Est: 1.5h
   - Acceptance: Generated servers read API keys from environment variables. Supports three auth patterns:
     - API key in header (`X-API-Key` from `MINT_API_KEY` env var)
     - Bearer token (`Authorization: Bearer` from `MINT_TOKEN` env var)
     - Custom header (configurable name and env var via `--auth-header` and `--auth-env` flags)
   - Deps: T9.3
 
-- [ ] T10.2 Implement HTTP/SSE transport support in generated Go servers  Owner: TBD  Est: 2h
+- [x] T10.2 Implement HTTP/SSE transport support in generated Go servers  Owner: TBD  Est: 2h
   - Acceptance: Generated Go server supports `--transport sse --port 8080` flag. Starts HTTP server with SSE endpoint at `/sse` and message endpoint at `/message`. Conforms to MCP HTTP/SSE transport spec.
   - Deps: T9.3
 
-- [ ] T10.3 Implement operation filtering for MCP generation  Owner: TBD  Est: 1h
+- [x] T10.3 Implement operation filtering for MCP generation  Owner: TBD  Est: 1h
   - Acceptance: `mint mcp generate --include-tags users,posts` generates tools only for operations tagged with "users" or "posts". `--exclude-paths '/internal/*'` excludes matching paths.
   - Deps: T8.2
 
@@ -376,15 +376,15 @@ Generates a complete, deployable Go MCP server project from the MCP model.
   - Acceptance: Users can provide a mapping file (`mint.yaml`) or overlay that renames tools. Example: map `listPets` to `search_pets`.
   - Deps: T8.2, T6.2
 
-- [ ] T10.5 Add Dockerfile template to generated servers  Owner: TBD  Est: 45m
+- [x] T10.5 Add Dockerfile template to generated servers  Owner: TBD  Est: 45m
   - Acceptance: Generated Go server includes a multi-stage `Dockerfile` that builds and runs the server. `docker build -t myserver .` succeeds.
   - Deps: T9.3
 
-- [ ] T10.6 Add unit and integration tests for advanced MCP features  Owner: TBD  Est: 1.5h
+- [x] T10.6 Add unit and integration tests for advanced MCP features  Owner: TBD  Est: 1.5h
   - Acceptance: Tests cover auth injection, SSE transport startup, operation filtering, tool name customization.
   - Deps: T10.1 through T10.5
 
-- [ ] T10.7 Run linter and formatter on E10 code  Owner: TBD  Est: 15m
+- [x] T10.7 Run linter and formatter on E10 code  Owner: TBD  Est: 15m
   - Deps: T10.1 through T10.5
 
 ### Epic E11: CI/CD Integration
