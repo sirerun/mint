@@ -24,6 +24,8 @@ func run(args []string) int {
 	case "version", "-v", "--version":
 		fmt.Println("mint " + version)
 		return 0
+	case "mcp":
+		return runMCP(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\nRun 'mint help' for usage.\n", args[0])
 		return 1
@@ -37,6 +39,7 @@ Usage:
   mint <command> [flags]
 
 Commands:
+  mcp         MCP server generation commands
   version     Print the version
   help        Show this help message
 
