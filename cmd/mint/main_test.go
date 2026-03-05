@@ -47,3 +47,25 @@ func TestRunUnknownCommand(t *testing.T) {
 		t.Errorf("run([notacommand]) = %d, want 1", got)
 	}
 }
+
+func TestRunSubcommands(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want int
+	}{
+		{name: "mcp help", args: []string{"mcp"}, want: 0},
+		{name: "mcp unknown", args: []string{"mcp", "notacommand"}, want: 1},
+		{name: "validate no args", args: []string{"validate"}, want: 1},
+		{name: "diff no args", args: []string{"diff"}, want: 1},
+		{name: "merge no args", args: []string{"merge"}, want: 1},
+		{name: "mcp generate no args", args: []string{"mcp", "generate"}, want: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := run(tt.args); got != tt.want {
+				t.Errorf("run(%v) = %d, want %d", tt.args, got, tt.want)
+			}
+		})
+	}
+}
