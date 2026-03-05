@@ -135,19 +135,20 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 
 ### Epic E2: OpenAPI Parsing and Loading
 
-- [ ] T2.1 Implement spec loader (file path, URL, stdin)  Owner: TBD  Est: 1.5h
+- [x] T2.1 Implement spec loader (file path, URL, stdin)  Owner: TBD  Est: 1.5h
   - Acceptance: Loads YAML and JSON specs from local files, HTTP URLs, and stdin pipe.
   - Uses `pb33f/libopenapi` for parsing.
-- [ ] T2.2 Implement spec resolution (resolve `$ref` references)  Owner: TBD  Est: 1h
+- [x] T2.2 Implement spec resolution (resolve `$ref` references)  Owner: TBD  Est: 1h
   - Acceptance: Specs with local and remote `$ref` references are fully resolved.
+  - Note: libopenapi handles $ref resolution via AllowFileReferences/AllowRemoteReferences config.
   - Deps: T2.1
-- [ ] T2.3 Add error reporting with file path and line number  Owner: TBD  Est: 1h
+- [x] T2.3 Add error reporting with file path and line number  Owner: TBD  Est: 1h
   - Acceptance: Parse errors include file name and line number. JSON output mode includes structured error objects.
   - Deps: T2.1
-- [ ] T2.4 Add unit and integration tests for spec loading  Owner: TBD  Est: 1h
+- [x] T2.4 Add unit and integration tests for spec loading  Owner: TBD  Est: 1h
   - Acceptance: Tests cover YAML, JSON, URL loading, invalid input, stdin. 90%+ coverage for loader package.
   - Deps: T2.1, T2.2, T2.3
-- [ ] T2.5 Run linter and formatter on E2 code  Owner: TBD  Est: 15m
+- [x] T2.5 Run linter and formatter on E2 code  Owner: TBD  Est: 15m
   - Deps: T2.1, T2.2, T2.3
 
 ### Epic E3: Validation and Linting
