@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sirerun/mint/internal/color"
 	"github.com/sirerun/mint/internal/validate"
 )
 
@@ -39,13 +40,23 @@ func runValidate(args []string) int {
 			return 1
 		}
 	} else {
+		cp := color.New()
 		for _, d := range result.Diagnostics {
-			fmt.Println(d.String())
+			label := cp.SeverityLabel(d.Severity)
+			ruleID := ""
+			if d.RuleID != "" {
+				ruleID = " " + cp.Gray(d.RuleID)
+			}
+			if d.Path != "" {
+				fmt.Printf("%s %s: %s%s\n", label, d.Path, d.Message, ruleID)
+			} else {
+				fmt.Printf("%s %s%s\n", label, d.Message, ruleID)
+			}
 		}
 		if result.Valid {
-			fmt.Println("Spec is valid.")
+			fmt.Println(cp.Bold("Spec is valid."))
 		} else {
-			fmt.Println("Spec has errors.")
+			fmt.Println(cp.Error("Spec has errors."))
 		}
 	}
 

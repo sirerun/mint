@@ -28,6 +28,8 @@ func run(args []string) int {
 		return runMCP(args[1:])
 	case "validate":
 		return runValidate(args[1:])
+	case "lint":
+		return runLint(args[1:])
 	case "diff":
 		return runDiff(args[1:])
 	case "merge":
@@ -51,6 +53,7 @@ Usage:
 Commands:
   mcp         MCP server generation commands
   validate    Validate an OpenAPI spec for correctness
+  lint        Lint an OpenAPI spec with configurable rulesets
   diff        Compare two OpenAPI specs
   merge       Merge multiple OpenAPI specs
   overlay     Apply OpenAPI Overlay documents

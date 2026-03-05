@@ -56,6 +56,7 @@ func TestRunSubcommands(t *testing.T) {
 	}{
 		{name: "mcp help", args: []string{"mcp"}, want: 0},
 		{name: "mcp unknown", args: []string{"mcp", "notacommand"}, want: 1},
+		{name: "lint no args", args: []string{"lint"}, want: 1},
 		{name: "validate no args", args: []string{"validate"}, want: 1},
 		{name: "diff no args", args: []string{"diff"}, want: 1},
 		{name: "merge no args", args: []string{"merge"}, want: 1},
