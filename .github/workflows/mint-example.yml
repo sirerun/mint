@@ -1,0 +1,46 @@
+name: Mint OpenAPI Check (Example)
+
+# Example workflow showing how to use the mint action in your repository.
+# Copy this file to your repo's .github/workflows/ and adjust the spec path.
+
+on:
+  pull_request:
+    paths:
+      - "**/*.yaml"
+      - "**/*.yml"
+      - "**/*.json"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint OpenAPI Spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: sirerun/mint@main
+        with:
+          spec: "api/openapi.yaml"
+          command: "lint"
+          ruleset: "recommended"
+
+  diff:
+    name: Diff OpenAPI Spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get base spec
+        run: git show origin/${{ github.base_ref }}:api/openapi.yaml > /tmp/base-spec.yaml 2>/dev/null || true
+
+      - uses: sirerun/mint@main
+        if: hashFiles('/tmp/base-spec.yaml') != ''
+        with:
+          spec: "api/openapi.yaml"
+          base-spec: "/tmp/base-spec.yaml"
+          command: "diff"
+          fail-on-breaking: "true"

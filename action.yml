@@ -1,0 +1,71 @@
+name: "Mint OpenAPI"
+description: "Lint, validate, and diff OpenAPI specs in pull requests using Mint"
+author: "Sire Run Inc"
+
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  spec:
+    description: "Path to the OpenAPI spec file"
+    required: true
+  command:
+    description: "Command to run: lint, validate, diff"
+    required: false
+    default: "lint"
+  ruleset:
+    description: "Lint ruleset: minimal, recommended, strict"
+    required: false
+    default: "recommended"
+  base-spec:
+    description: "Path to the base spec for diff (required when command=diff)"
+    required: false
+    default: ""
+  fail-on-breaking:
+    description: "Fail the action if breaking changes are detected (for diff)"
+    required: false
+    default: "true"
+  version:
+    description: "Mint version to install (e.g., v0.1.0, latest)"
+    required: false
+    default: "latest"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "stable"
+
+    - name: Install Mint
+      shell: bash
+      run: |
+        if [ "${{ inputs.version }}" = "latest" ]; then
+          go install github.com/sirerun/mint/cmd/mint@latest
+        else
+          go install github.com/sirerun/mint/cmd/mint@${{ inputs.version }}
+        fi
+
+    - name: Run Mint lint
+      if: inputs.command == 'lint'
+      shell: bash
+      run: |
+        mint lint --ruleset "${{ inputs.ruleset }}" --format text "${{ inputs.spec }}"
+
+    - name: Run Mint validate
+      if: inputs.command == 'validate'
+      shell: bash
+      run: |
+        mint validate --format text "${{ inputs.spec }}"
+
+    - name: Run Mint diff
+      if: inputs.command == 'diff'
+      shell: bash
+      run: |
+        ARGS=""
+        if [ "${{ inputs.fail-on-breaking }}" = "true" ]; then
+          ARGS="--fail-on-breaking"
+        fi
+        mint diff $ARGS "${{ inputs.base-spec }}" "${{ inputs.spec }}"
