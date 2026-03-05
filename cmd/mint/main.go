@@ -32,6 +32,10 @@ func run(args []string) int {
 		return runDiff(args[1:])
 	case "merge":
 		return runMerge(args[1:])
+	case "overlay":
+		return runOverlay(args[1:])
+	case "transform":
+		return runTransform(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\nRun 'mint help' for usage.\n", args[0])
 		return 1
@@ -49,6 +53,8 @@ Commands:
   validate    Validate an OpenAPI spec for correctness
   diff        Compare two OpenAPI specs
   merge       Merge multiple OpenAPI specs
+  overlay     Apply OpenAPI Overlay documents
+  transform   Transform specs (filter, cleanup, format)
   version     Print the version
   help        Show this help message
 
