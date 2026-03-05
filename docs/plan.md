@@ -255,7 +255,7 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 
 This is the primary epic. It builds the engine that maps OpenAPI operations to MCP tools and generates server code.
 
-- [ ] T8.1 Design OpenAPI-to-MCP mapping model  Owner: TBD  Est: 1.5h
+- [x] T8.1 Design OpenAPI-to-MCP mapping model  Owner: TBD  Est: 1.5h
   - Acceptance: Go struct definitions in `internal/mcpgen/model.go` that represent:
     - `MCPServer` (name, version, description, tools, auth config)
     - `MCPTool` (name from operationId, description from summary/description, inputSchema from parameters+requestBody, HTTP method, path, response schema)
@@ -264,7 +264,7 @@ This is the primary epic. It builds the engine that maps OpenAPI operations to M
   - Document: each OpenAPI operation becomes one MCP tool. OperationId becomes the tool name (converted to snake_case). Path params, query params, header params, and request body fields become tool input properties. The tool's inputSchema is a JSON Schema object derived from the OpenAPI parameter schemas and request body schema.
   - Deps: T2.1
 
-- [ ] T8.2 Implement OpenAPI-to-MCP model converter  Owner: TBD  Est: 2h
+- [x] T8.2 Implement OpenAPI-to-MCP model converter  Owner: TBD  Est: 2h
   - Acceptance: Given a parsed OpenAPI document, produces a list of `MCPTool` structs with:
     - Tool name derived from operationId (snake_case). If no operationId, derive from method+path (e.g., `get_users_by_id`).
     - Tool description from operation summary (fallback to description, fallback to "No description").
@@ -274,7 +274,7 @@ This is the primary epic. It builds the engine that maps OpenAPI operations to M
     - Response content type (application/json preferred).
   - Deps: T8.1, T2.2
 
-- [ ] T8.3 Add unit tests for OpenAPI-to-MCP model converter  Owner: TBD  Est: 1h
+- [x] T8.3 Add unit tests for OpenAPI-to-MCP model converter  Owner: TBD  Est: 1h
   - Acceptance: Tests cover:
     - Operation with path params, query params, and request body
     - Operation with no parameters
@@ -284,15 +284,15 @@ This is the primary epic. It builds the engine that maps OpenAPI operations to M
     - Multiple security schemes
   - Deps: T8.2
 
-- [ ] T8.4 Implement JSON Schema derivation from OpenAPI schemas  Owner: TBD  Est: 1.5h
+- [x] T8.4 Implement JSON Schema derivation from OpenAPI schemas  Owner: TBD  Est: 1.5h
   - Acceptance: Converts OpenAPI Schema Object to JSON Schema suitable for MCP tool inputSchema. Handles: string, integer, number, boolean, array, object types. Preserves descriptions, enums, defaults, format hints. Resolves `$ref` to inline schemas.
   - Deps: T8.1, T2.2
 
-- [ ] T8.5 Add unit tests for JSON Schema derivation  Owner: TBD  Est: 1h
+- [x] T8.5 Add unit tests for JSON Schema derivation  Owner: TBD  Est: 1h
   - Acceptance: Tests cover all primitive types, arrays of objects, nested objects, `$ref` resolution, enum values.
   - Deps: T8.4
 
-- [ ] T8.6 Run linter and formatter on E8 code  Owner: TBD  Est: 15m
+- [x] T8.6 Run linter and formatter on E8 code  Owner: TBD  Est: 15m
   - Deps: T8.1 through T8.5
 
 ### Epic E9: MCP Server Generation -- Go Output
