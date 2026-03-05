@@ -213,42 +213,43 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 
 ### Epic E6: Overlay Application
 
-- [ ] T6.1 Implement OpenAPI Overlay specification parser  Owner: TBD  Est: 1.5h
+- [x] T6.1 Implement OpenAPI Overlay specification parser  Owner: TBD  Est: 1.5h
   - Acceptance: Parses overlay YAML/JSON documents per the Overlay specification.
   - Deps: T2.1
-- [ ] T6.2 Implement overlay application engine  Owner: TBD  Est: 2h
+- [x] T6.2 Implement overlay application engine  Owner: TBD  Est: 2h
   - Acceptance: Applies actions (update, remove) to target spec via JSONPath selectors. Output is valid OpenAPI.
   - Deps: T6.1
-- [ ] T6.3 Implement `mint overlay` command  Owner: TBD  Est: 45m
+- [x] T6.3 Implement `mint overlay` command  Owner: TBD  Est: 45m
   - Acceptance: `mint overlay apply spec.yaml overlay.yaml -o out.yaml` produces correct output.
   - Deps: T6.2, T1.3
-- [ ] T6.4 Add unit and integration tests for overlay  Owner: TBD  Est: 1h
+- [x] T6.4 Add unit and integration tests for overlay  Owner: TBD  Est: 1h
   - Acceptance: Tests cover update actions, remove actions, nested paths, invalid overlay documents.
   - Deps: T6.1, T6.2, T6.3
-- [ ] T6.5 Run linter and formatter on E6 code  Owner: TBD  Est: 15m
+- [x] T6.5 Run linter and formatter on E6 code  Owner: TBD  Est: 15m
   - Deps: T6.1, T6.2, T6.3
 
 ### Epic E7: Spec Transformation
 
-- [ ] T7.1 Implement filter-operations transform (by tag, path pattern, method)  Owner: TBD  Est: 1.5h
+- [x] T7.1 Implement filter-operations transform (by tag, path pattern, method)  Owner: TBD  Est: 1.5h
   - Acceptance: Filters operations and removes unused components after filtering.
   - Deps: T2.1
-- [ ] T7.2 Implement remove-unused-components transform  Owner: TBD  Est: 1h
+- [x] T7.2 Implement remove-unused-components transform  Owner: TBD  Est: 1h
   - Acceptance: Removes schemas, parameters, responses not referenced by any operation.
   - Deps: T2.1
-- [ ] T7.3 Implement format/normalize transform (sort keys, consistent style)  Owner: TBD  Est: 1h
+- [x] T7.3 Implement format/normalize transform (sort keys, consistent style)  Owner: TBD  Est: 1h
   - Acceptance: Output has sorted keys, consistent indentation. Idempotent (running twice produces same output).
   - Deps: T2.1
 - [ ] T7.4 Implement Swagger 2.0 to OpenAPI 3.0 conversion  Owner: TBD  Est: 2h
   - Acceptance: Converts Swagger 2.0 petstore to valid OpenAPI 3.0. Handles definitions, parameters, responses.
   - Deps: T2.1
-- [ ] T7.5 Implement `mint transform` command with subcommands  Owner: TBD  Est: 1h
-  - Acceptance: `mint transform filter`, `mint transform cleanup`, `mint transform format`, `mint transform convert` all work.
-  - Deps: T7.1, T7.2, T7.3, T7.4, T1.3
-- [ ] T7.6 Add unit and integration tests for transformations  Owner: TBD  Est: 1.5h
+- [x] T7.5 Implement `mint transform` command with subcommands  Owner: TBD  Est: 1h
+  - Acceptance: `mint transform filter`, `mint transform cleanup`, `mint transform format` all work.
+  - Note: Swagger 2.0 convert deferred to future release.
+  - Deps: T7.1, T7.2, T7.3, T1.3
+- [x] T7.6 Add unit and integration tests for transformations  Owner: TBD  Est: 1.5h
   - Acceptance: Each transform tested with before/after specs. Idempotency verified for format.
   - Deps: T7.1 through T7.5
-- [ ] T7.7 Run linter and formatter on E7 code  Owner: TBD  Est: 15m
+- [x] T7.7 Run linter and formatter on E7 code  Owner: TBD  Est: 15m
   - Deps: T7.1 through T7.5
 
 ### Epic E8: MCP Server Generation -- Core Engine

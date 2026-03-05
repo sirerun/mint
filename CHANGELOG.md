@@ -10,10 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `mint mcp generate` command to generate Go MCP servers from OpenAPI specs
 - `mint validate` command for OpenAPI spec validation
+- `mint diff` command to compare two specs with breaking change detection
+- `mint merge` command to merge multiple specs with conflict strategies
+- `mint overlay apply` command for OpenAPI Overlay specification support
+- `mint transform filter` command to filter operations by tags or paths
+- `mint transform cleanup` command to remove unused components
+- `mint transform format` command to normalize and sort spec keys
 - Generated servers support stdio and SSE transports via `--transport` flag
 - Authentication passthrough (API key, Bearer token, custom header)
 - Operation filtering with `--include-tags` and `--exclude-paths`
 - Dockerfile included in generated servers
-- JSON output format for validation results (`--format json`)
+- JSON output format for validation and diff results (`--format json`)
 - Cross-platform binary releases via goreleaser
 - GitHub Actions CI pipeline
