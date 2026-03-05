@@ -113,6 +113,56 @@ mint validate petstore.yaml
 mint validate --format json petstore.yaml
 ```
 
+### `mint diff`
+
+Compare two OpenAPI specs and detect breaking changes.
+
+```bash
+mint diff [flags] <old-spec> <new-spec>
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `text` | Output format: `text` or `json` |
+| `--fail-on-breaking` | `false` | Exit with code 1 if breaking changes found |
+
+**Examples:**
+
+```bash
+# Compare two specs
+mint diff old-api.yaml new-api.yaml
+
+# Fail CI on breaking changes
+mint diff --fail-on-breaking old-api.yaml new-api.yaml
+```
+
+### `mint merge`
+
+Merge multiple OpenAPI specs into one.
+
+```bash
+mint merge [flags] <spec1> <spec2> [spec3...]
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-o` | stdout | Output file |
+| `--on-conflict` | `fail` | Conflict strategy: `fail`, `skip`, or `rename` |
+
+**Examples:**
+
+```bash
+# Merge two specs
+mint merge users-api.yaml pets-api.yaml -o merged.yaml
+
+# Skip conflicting paths
+mint merge --on-conflict skip api-v1.yaml api-v2.yaml -o merged.yaml
+```
+
 ## What Gets Generated
 
 Given an OpenAPI spec, mint generates a complete Go project:
