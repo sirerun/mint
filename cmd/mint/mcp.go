@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sirerun/mint/internal/loader"
 	"github.com/sirerun/mint/internal/mcpgen"
@@ -31,6 +32,10 @@ func runMCP(args []string) int {
 func runMCPGenerate(args []string) int {
 	fs := flag.NewFlagSet("mint mcp generate", flag.ContinueOnError)
 	output := fs.String("output", "./server", "Output directory for generated server")
+	includeTags := fs.String("include-tags", "", "Only include operations with these tags (comma-separated)")
+	excludePaths := fs.String("exclude-paths", "", "Exclude paths matching this pattern (comma-separated)")
+	authHeader := fs.String("auth-header", "", "Custom auth header name (overrides spec)")
+	authEnv := fs.String("auth-env", "", "Custom env var for auth token (overrides spec)")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -55,6 +60,23 @@ func runMCPGenerate(args []string) int {
 		return 1
 	}
 
+	if *includeTags != "" {
+		tags := strings.Split(*includeTags, ",")
+		server.Tools = mcpgen.FilterByTags(server.Tools, tags, result.Model)
+	}
+
+	if *excludePaths != "" {
+		patterns := strings.Split(*excludePaths, ",")
+		server.Tools = mcpgen.FilterByPaths(server.Tools, patterns)
+	}
+
+	if *authHeader != "" && server.Auth != nil {
+		server.Auth.HeaderName = *authHeader
+	}
+	if *authEnv != "" && server.Auth != nil {
+		server.Auth.EnvVar = *authEnv
+	}
+
 	if err := golang.Generate(server, *output); err != nil {
 		fmt.Fprintf(os.Stderr, "error generating server: %v\n", err)
 		return 1
@@ -76,6 +98,13 @@ Usage:
 
 Subcommands:
   generate    Generate a Go MCP server from an OpenAPI spec
+
+Flags for 'generate':
+  --output <dir>         Output directory (default: ./server)
+  --include-tags <tags>  Only include operations with these tags (comma-separated)
+  --exclude-paths <pat>  Exclude paths matching patterns (comma-separated)
+  --auth-header <name>   Custom auth header name
+  --auth-env <var>       Custom env var for auth token
 
 Run 'mint mcp generate --help' for more information.
 `)
