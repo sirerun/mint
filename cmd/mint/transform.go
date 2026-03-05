@@ -22,6 +22,8 @@ func runTransform(args []string) int {
 		return runTransformCleanup(args[1:])
 	case "format":
 		return runTransformFormat(args[1:])
+	case "convert":
+		return runTransformConvert(args[1:])
 	case "help", "-h", "--help":
 		printTransformUsage()
 		return 0
@@ -138,6 +140,34 @@ func writeOutput(data []byte, path string) int {
 	return 0
 }
 
+func runTransformConvert(args []string) int {
+	fs := flag.NewFlagSet("mint transform convert", flag.ContinueOnError)
+	output := fs.String("o", "", "Output file (default: stdout)")
+
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	if fs.NArg() == 0 {
+		fmt.Fprintln(os.Stderr, "error: Swagger 2.0 spec file required")
+		return 1
+	}
+
+	data, err := os.ReadFile(fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading spec: %v\n", err)
+		return 1
+	}
+
+	result, err := transform.ConvertSwagger(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	return writeOutput(result, *output)
+}
+
 func printTransformUsage() {
 	fmt.Print(`mint transform - Transform OpenAPI specs.
 
@@ -148,6 +178,7 @@ Subcommands:
   filter     Filter operations by tags or path patterns
   cleanup    Remove unused components
   format     Normalize and format a spec
+  convert    Convert Swagger 2.0 to OpenAPI 3.0
 
 Run 'mint transform <subcommand> --help' for more information.
 `)
