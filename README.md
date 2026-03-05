@@ -72,6 +72,7 @@ mint mcp generate [flags] <spec-file>
 | `--exclude-paths` | | Exclude paths matching patterns (comma-separated, supports `*` suffix) |
 | `--auth-header` | | Override auth header name from spec |
 | `--auth-env` | | Override env var name for auth token |
+| `--tool-names` | | YAML file mapping original tool names to custom names |
 
 **Examples:**
 
@@ -87,6 +88,41 @@ mint mcp generate --exclude-paths '/internal/*,/admin/*' --output ./public-serve
 
 # Custom auth configuration
 mint mcp generate --auth-header X-Custom-Key --auth-env MY_API_KEY --output ./server spec.yaml
+
+# Custom tool names
+cat > tool-names.yaml << 'EOF'
+list_pets: get_all_animals
+create_pet: add_animal
+EOF
+mint mcp generate --tool-names tool-names.yaml --output ./server spec.yaml
+```
+
+### `mint lint`
+
+Lint an OpenAPI spec with configurable rulesets.
+
+```bash
+mint lint [flags] <spec-file>
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--format` | `text` | Output format: `text` or `json` |
+| `--ruleset` | `recommended` | Ruleset: `minimal`, `recommended`, or `strict` |
+
+**Examples:**
+
+```bash
+# Lint with recommended rules
+mint lint petstore.yaml
+
+# Strict ruleset
+mint lint --ruleset strict petstore.yaml
+
+# JSON output for CI
+mint lint --format json petstore.yaml
 ```
 
 ### `mint validate`
@@ -163,6 +199,46 @@ mint merge users-api.yaml pets-api.yaml -o merged.yaml
 mint merge --on-conflict skip api-v1.yaml api-v2.yaml -o merged.yaml
 ```
 
+### `mint overlay apply`
+
+Apply an OpenAPI Overlay document to a spec.
+
+```bash
+mint overlay apply [flags] <spec-file> <overlay-file>
+```
+
+### `mint transform`
+
+Transform OpenAPI specs.
+
+```bash
+# Filter operations by tags
+mint transform filter --tags pets spec.yaml
+
+# Remove unused components
+mint transform cleanup spec.yaml -o cleaned.yaml
+
+# Normalize/format a spec
+mint transform format spec.yaml -o formatted.yaml
+
+# Convert Swagger 2.0 to OpenAPI 3.0
+mint transform convert swagger2.yaml -o openapi3.yaml
+```
+
+## GitHub Action
+
+Use mint in your CI/CD pipelines:
+
+```yaml
+- uses: sirerun/mint@main
+  with:
+    spec: "api/openapi.yaml"
+    command: "lint"
+    ruleset: "recommended"
+```
+
+See [`.github/workflows/mint-example.yml`](.github/workflows/mint-example.yml) for a complete example.
+
 ## What Gets Generated
 
 Given an OpenAPI spec, mint generates a complete Go project:
@@ -204,7 +280,7 @@ Override with `--auth-header` and `--auth-env` flags.
 ## Requirements
 
 - Go 1.23+ (for building generated servers)
-- An OpenAPI 3.0 or 3.1 specification
+- An OpenAPI 3.0/3.1 specification (or Swagger 2.0 — use `mint transform convert` first)
 
 ## License
 

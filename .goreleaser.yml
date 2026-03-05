@@ -25,6 +25,16 @@ archives:
 checksum:
   name_template: "checksums.txt"
 
+brews:
+  - repository:
+      owner: sirerun
+      name: homebrew-tap
+    homepage: "https://github.com/sirerun/mint"
+    description: "Generate MCP servers from OpenAPI specs"
+    license: "Apache-2.0"
+    install: |
+      bin.install "mint"
+
 changelog:
   sort: asc
   filters:

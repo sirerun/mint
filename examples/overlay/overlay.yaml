@@ -1,0 +1,11 @@
+overlay: "1.0.0"
+info:
+  title: Production overlay
+  version: "1.0.0"
+actions:
+  - target: $.info.title
+    update: Example API (Production)
+  - target: $.info.description
+    update: Production deployment of the Example API.
+  - target: $.paths./items/{id}.delete
+    remove: true

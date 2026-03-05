@@ -21,5 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Operation filtering with `--include-tags` and `--exclude-paths`
 - Dockerfile included in generated servers
 - JSON output format for validation and diff results (`--format json`)
+- `mint lint` command with configurable rulesets (minimal, recommended, strict)
+- `mint transform convert` command for Swagger 2.0 to OpenAPI 3.0 conversion
+- Colored terminal output for lint and validate commands (auto-disabled when not a TTY)
+- Tool name customization via `--tool-names` YAML mapping file
+- GitHub Action for running mint in CI/CD pipelines (`sirerun/mint@main`)
 - Cross-platform binary releases via goreleaser
 - GitHub Actions CI pipeline

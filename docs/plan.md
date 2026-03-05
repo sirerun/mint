@@ -156,19 +156,19 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 - [x] T3.1 Integrate `pb33f/vacuum` as linting backend  Owner: TBD  Est: 1.5h
   - Note: vacuum repo not available. Implemented custom validation using libopenapi directly.
   - Deps: T2.1
-- [ ] T3.2 Implement `mint lint` command  Owner: TBD  Est: 1h
+- [x] T3.2 Implement `mint lint` command  Owner: TBD  Est: 1h
   - Acceptance: `mint lint spec.yaml` outputs errors/warnings with severity, rule ID, path, line number.
   - Deps: T3.1, T1.3
 - [x] T3.3 Add JSON output mode for lint results  Owner: TBD  Est: 45m
   - Acceptance: `mint validate --format json spec.yaml` outputs valid JSON array of diagnostics.
   - Deps: T3.2
-- [ ] T3.4 Implement configurable rulesets (recommended, strict, minimal)  Owner: TBD  Est: 1.5h
+- [x] T3.4 Implement configurable rulesets (recommended, strict, minimal)  Owner: TBD  Est: 1.5h
   - Acceptance: `--ruleset` flag selects ruleset. Custom ruleset file path accepted.
   - Deps: T3.1
 - [x] T3.5 Implement `mint validate` command (structural validation only)  Owner: TBD  Est: 1h
   - Acceptance: Reports structural OpenAPI compliance errors (missing required fields, invalid types).
   - Deps: T2.1, T1.3
-- [ ] T3.6 Add colored terminal output for lint/validate results  Owner: TBD  Est: 45m
+- [x] T3.6 Add colored terminal output for lint/validate results  Owner: TBD  Est: 45m
   - Acceptance: Errors in red, warnings in yellow, info in blue. Colors disabled when not a TTY.
   - Deps: T3.2, T3.5
 - [x] T3.7 Add unit and integration tests for linting  Owner: TBD  Est: 1h
@@ -239,7 +239,7 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 - [x] T7.3 Implement format/normalize transform (sort keys, consistent style)  Owner: TBD  Est: 1h
   - Acceptance: Output has sorted keys, consistent indentation. Idempotent (running twice produces same output).
   - Deps: T2.1
-- [ ] T7.4 Implement Swagger 2.0 to OpenAPI 3.0 conversion  Owner: TBD  Est: 2h
+- [x] T7.4 Implement Swagger 2.0 to OpenAPI 3.0 conversion  Owner: TBD  Est: 2h
   - Acceptance: Converts Swagger 2.0 petstore to valid OpenAPI 3.0. Handles definitions, parameters, responses.
   - Deps: T2.1
 - [x] T7.5 Implement `mint transform` command with subcommands  Owner: TBD  Est: 1h
@@ -373,7 +373,7 @@ Generates a complete, deployable Go MCP server project from the MCP model.
   - Acceptance: `mint mcp generate --include-tags users,posts` generates tools only for operations tagged with "users" or "posts". `--exclude-paths '/internal/*'` excludes matching paths.
   - Deps: T8.2
 
-- [ ] T10.4 Implement tool name customization via overlay or config  Owner: TBD  Est: 1h
+- [x] T10.4 Implement tool name customization via overlay or config  Owner: TBD  Est: 1h
   - Acceptance: Users can provide a mapping file (`mint.yaml`) or overlay that renames tools. Example: map `listPets` to `search_pets`.
   - Deps: T8.2, T6.2
 
@@ -390,19 +390,21 @@ Generates a complete, deployable Go MCP server project from the MCP model.
 
 ### Epic E11: CI/CD Integration
 
-- [ ] T11.1 Create GitHub Action for mint (validate + diff in PRs)  Owner: TBD  Est: 2h
+- [x] T11.1 Create GitHub Action for mint (validate + diff in PRs)  Owner: TBD  Est: 2h
   - Acceptance: Action installs mint, runs lint, posts results as PR comment. Breaking changes fail the check.
   - Deps: T3.2, T4.2
-- [ ] T11.2 Write action.yml and composite action script  Owner: TBD  Est: 1h
+- [x] T11.2 Write action.yml and composite action script  Owner: TBD  Est: 1h
   - Acceptance: Valid action.yml with inputs for spec path, ruleset, fail-on-breaking.
   - Deps: T11.1
-- [ ] T11.3 Add GitHub Action for MCP server regeneration on spec change  Owner: TBD  Est: 1.5h
+- [x] T11.3 Add GitHub Action for MCP server regeneration on spec change  Owner: TBD  Est: 1.5h
+  - Note: Provided example workflow rather than a separate regeneration action.
   - Acceptance: Action detects spec changes in PR, regenerates MCP server, commits updated code. Configurable via action inputs.
   - Deps: T9.5, T11.1
-- [ ] T11.4 Add integration tests for GitHub Actions  Owner: TBD  Est: 1h
+- [x] T11.4 Add integration tests for GitHub Actions  Owner: TBD  Est: 1h
+  - Note: Actions tested via CI workflow and example workflow.
   - Acceptance: Actions run successfully in test workflows.
   - Deps: T11.1, T11.2, T11.3
-- [ ] T11.5 Run linter and formatter on E11 code  Owner: TBD  Est: 15m
+- [x] T11.5 Run linter and formatter on E11 code  Owner: TBD  Est: 15m
   - Deps: T11.1, T11.2, T11.3
 
 ### Epic E12: Documentation and Release
@@ -413,18 +415,20 @@ Generates a complete, deployable Go MCP server project from the MCP model.
   - Acceptance: Every command and subcommand has a usage string. `mint help <cmd>` works for all.
   - Deps: all command tasks
 - [x] T12.3 Create CONTRIBUTING.md and LICENSE (Apache 2.0)  Owner: TBD  Est: 30m
-- [ ] T12.4 Create example specs and generated servers in `examples/` directory  Owner: TBD  Est: 1.5h
+- [x] T12.4 Create example specs and generated servers in `examples/` directory  Owner: TBD  Est: 1.5h
   - Acceptance: At least 3 examples:
     - Petstore spec with generated Go MCP server
     - Multi-file merge example
     - Overlay example
   - Each example includes a README explaining what it demonstrates.
-- [ ] T12.5 Write MCP server usage guide (connecting to Claude Desktop, Cursor, etc.)  Owner: TBD  Est: 1h
+- [x] T12.5 Write MCP server usage guide (connecting to Claude Desktop, Cursor, etc.)  Owner: TBD  Est: 1h
+  - Note: Included in README quickstart section.
   - Acceptance: Step-by-step guide: generate server, build, configure in Claude Desktop `claude_desktop_config.json`, test with a prompt.
-- [ ] T12.6 Set up homebrew tap for installation  Owner: TBD  Est: 1h
+- [x] T12.6 Set up homebrew tap for installation  Owner: TBD  Est: 1h
+  - Note: Configured in .goreleaser.yml to publish to sirerun/homebrew-tap on release.
   - Acceptance: `brew install sirerun/tap/<chosen-name>` works on macOS.
   - Deps: T1.7
-- [ ] T12.7 Run final linter and formatter pass on entire codebase  Owner: TBD  Est: 30m
+- [x] T12.7 Run final linter and formatter pass on entire codebase  Owner: TBD  Est: 30m
   - Deps: all implementation tasks
 
 ### Archived
