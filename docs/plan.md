@@ -179,36 +179,36 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 
 ### Epic E4: Spec Diffing
 
-- [ ] T4.1 Implement diff engine using `pb33f/openapi-changes`  Owner: TBD  Est: 2h
-  - Acceptance: Compares two specs and returns list of changes with breaking/non-breaking classification.
+- [x] T4.1 Implement diff engine using `pb33f/openapi-changes`  Owner: TBD  Est: 2h
+  - Note: Implemented custom diff engine (openapi-changes repo unavailable). Compares paths, operations, parameters.
   - Deps: T2.1
-- [ ] T4.2 Implement `mint diff` command  Owner: TBD  Est: 1h
+- [x] T4.2 Implement `mint diff` command  Owner: TBD  Est: 1h
   - Acceptance: `mint diff old.yaml new.yaml` outputs human-readable change list. `--format json` outputs structured JSON.
   - Deps: T4.1, T1.3
-- [ ] T4.3 Add breaking change detection and exit code  Owner: TBD  Est: 45m
+- [x] T4.3 Add breaking change detection and exit code  Owner: TBD  Est: 45m
   - Acceptance: Exit code 1 when breaking changes found, 0 otherwise. `--fail-on-breaking` flag.
   - Deps: T4.2
-- [ ] T4.4 Add unit and integration tests for diffing  Owner: TBD  Est: 1h
+- [x] T4.4 Add unit and integration tests for diffing  Owner: TBD  Est: 1h
   - Acceptance: Tests cover additions, removals, modifications, breaking vs non-breaking. JSON output validated.
   - Deps: T4.1, T4.2, T4.3
-- [ ] T4.5 Run linter and formatter on E4 code  Owner: TBD  Est: 15m
+- [x] T4.5 Run linter and formatter on E4 code  Owner: TBD  Est: 15m
   - Deps: T4.1, T4.2, T4.3
 
 ### Epic E5: Spec Merging
 
-- [ ] T5.1 Implement merge engine for combining multiple OpenAPI documents  Owner: TBD  Est: 2h
+- [x] T5.1 Implement merge engine for combining multiple OpenAPI documents  Owner: TBD  Est: 2h
   - Acceptance: Merges paths, components, tags from 2+ specs. Detects and reports conflicts (duplicate paths, operationIds).
   - Deps: T2.1
-- [ ] T5.2 Implement `mint merge` command  Owner: TBD  Est: 1h
+- [x] T5.2 Implement `mint merge` command  Owner: TBD  Est: 1h
   - Acceptance: `mint merge a.yaml b.yaml -o merged.yaml` produces valid merged spec. Conflicts reported to stderr.
   - Deps: T5.1, T1.3
-- [ ] T5.3 Add conflict resolution strategies (fail, rename, skip)  Owner: TBD  Est: 1h
+- [x] T5.3 Add conflict resolution strategies (fail, rename, skip)  Owner: TBD  Est: 1h
   - Acceptance: `--on-conflict` flag controls behavior. Default is fail.
   - Deps: T5.2
-- [ ] T5.4 Add unit and integration tests for merging  Owner: TBD  Est: 1.5h
+- [x] T5.4 Add unit and integration tests for merging  Owner: TBD  Est: 1.5h
   - Acceptance: Tests cover 2-spec merge, 3-spec merge, conflicts, resolution strategies.
   - Deps: T5.1, T5.2, T5.3
-- [ ] T5.5 Run linter and formatter on E5 code  Owner: TBD  Est: 15m
+- [x] T5.5 Run linter and formatter on E5 code  Owner: TBD  Est: 15m
   - Deps: T5.1, T5.2, T5.3
 
 ### Epic E6: Overlay Application
