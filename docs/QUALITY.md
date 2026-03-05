@@ -1,0 +1,38 @@
+# Quality Gates
+
+## Go Quality Profile
+
+| Gate | Command | Status |
+|------|---------|--------|
+| Build | `go build ./...` | PASS |
+| Test | `go test ./... -race -timeout 120s` | PASS |
+| Vet | `go vet ./...` | PASS |
+| Lint | `golangci-lint run ./...` | PASS (0 issues) |
+
+## Test Coverage
+
+| Package | Coverage |
+|---------|----------|
+| internal/loader | 82.6% |
+| internal/mcpgen | 65.3% |
+| internal/mcpgen/golang | 82.1% |
+| internal/validate | 74.0% |
+| cmd/mint | 12.4% (CLI wiring) |
+
+## Dependencies
+
+| Dependency | License | Purpose |
+|-----------|---------|---------|
+| pb33f/libopenapi | BSD-3 | OpenAPI parsing |
+| pb33f/ordered-map/v2 | BSD-3 | Ordered map (transitive) |
+
+### Runtime Dependencies (in generated servers)
+
+| Dependency | License | Purpose |
+|-----------|---------|---------|
+| mark3labs/mcp-go | MIT | MCP SDK for generated Go servers |
+
+## Pre-commit Hooks
+
+- golangci-lint runs on staged packages
+- `go test ./...` runs on every commit
