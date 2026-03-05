@@ -29,7 +29,7 @@ func TestGenerate(t *testing.T) {
 
 	// Check all expected files exist
 	expectedFiles := []string{
-		"main.go", "server.go", "tools.go", "client.go", "go.mod", "README.md",
+		"main.go", "server.go", "tools.go", "client.go", "go.mod", "Dockerfile", "README.md",
 	}
 	for _, f := range expectedFiles {
 		path := filepath.Join(outputDir, f)

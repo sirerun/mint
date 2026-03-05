@@ -55,6 +55,7 @@ func Generate(server *mcpgen.MCPServer, outputDir string) error {
 		{"templates/tools.go.tmpl", "tools.go"},
 		{"templates/client.go.tmpl", "client.go"},
 		{"templates/go.mod.tmpl", "go.mod"},
+		{"templates/Dockerfile.tmpl", "Dockerfile"},
 		{"templates/README.md.tmpl", "README.md"},
 	}
 
