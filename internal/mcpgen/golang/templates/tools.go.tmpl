@@ -1,0 +1,61 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/mark3labs/mcp-go/mcp"
+)
+{{range .Tools}}
+func (s *Server) handle{{exportName .Name}}(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	args := request.GetArguments()
+
+	path := "{{.HTTPPath}}"
+{{- range .Params}}
+{{- if eq .In "path"}}
+	if v, ok := args["{{.Name}}"]; ok {
+		path = strings.Replace(path, "{ {{- .Name -}} }", fmt.Sprintf("%v", v), 1)
+	}
+{{- end}}
+{{- end}}
+
+	var queryParts []string
+{{- range .Params}}
+{{- if eq .In "query"}}
+	if v, ok := args["{{.Name}}"]; ok {
+		queryParts = append(queryParts, fmt.Sprintf("{{.Name}}=%v", v))
+	}
+{{- end}}
+{{- end}}
+
+	if len(queryParts) > 0 {
+		path = path + "?" + strings.Join(queryParts, "&")
+	}
+{{if hasBodyParams .Params}}
+	bodyParams := make(map[string]interface{})
+{{- range .Params}}
+{{- if eq .In "body"}}
+	if v, ok := args["{{.Name}}"]; ok {
+		bodyParams["{{.Name}}"] = v
+	}
+{{- end}}
+{{- end}}
+
+	resp, err := s.client.Do(ctx, "{{.HTTPMethod}}", path, bodyParams)
+{{- else}}
+	resp, err := s.client.Do(ctx, "{{.HTTPMethod}}", path, nil)
+{{- end}}
+	if err != nil {
+		return nil, fmt.Errorf("{{.Name}}: %w", err)
+	}
+
+	data, err := json.Marshal(resp)
+	if err != nil {
+		return nil, fmt.Errorf("{{.Name}}: marshaling response: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(data)), nil
+}
+{{end}}
