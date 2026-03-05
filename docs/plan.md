@@ -299,7 +299,7 @@ This is the primary epic. It builds the engine that maps OpenAPI operations to M
 
 Generates a complete, deployable Go MCP server project from the MCP model.
 
-- [ ] T9.1 Design Go MCP server template structure  Owner: TBD  Est: 1h
+- [x] T9.1 Design Go MCP server template structure  Owner: TBD  Est: 1h
   - Acceptance: Document (in code comments or a design doc) describing:
     - Generated file layout: `main.go`, `server.go`, `tools.go`, `client.go`, `types.go`, `go.mod`
     - `main.go`: parses flags (--transport stdio|sse, --port, --api-key), starts server
@@ -309,7 +309,7 @@ Generates a complete, deployable Go MCP server project from the MCP model.
     - `types.go`: request/response structs for each operation
     - `go.mod`: module declaration with mcp-go dependency
 
-- [ ] T9.2 Create Go MCP server templates using `text/template`  Owner: TBD  Est: 3h
+- [x] T9.2 Create Go MCP server templates using `text/template`  Owner: TBD  Est: 3h
   - Acceptance: Template files in `templates/mcp-go/` embedded via `embed.FS`:
     - `main.go.tmpl`: CLI entry point with transport selection
     - `server.go.tmpl`: MCP server setup, tool registration loop
@@ -321,11 +321,11 @@ Generates a complete, deployable Go MCP server project from the MCP model.
   - Each template must produce valid, `gofmt`-clean Go code.
   - Deps: T9.1
 
-- [ ] T9.3 Implement Go code generation orchestrator  Owner: TBD  Est: 2h
+- [x] T9.3 Implement Go code generation orchestrator  Owner: TBD  Est: 2h
   - Acceptance: `internal/mcpgen/golang/generate.go` takes an `MCPServer` model and output directory path, executes all templates, writes files to output directory. Returns error if any template fails.
   - Deps: T9.2, T8.2
 
-- [ ] T9.4 Implement Go type mapping (OpenAPI types to Go types)  Owner: TBD  Est: 1.5h
+- [x] T9.4 Implement Go type mapping (OpenAPI types to Go types)  Owner: TBD  Est: 1.5h
   - Acceptance: Maps OpenAPI types to Go types:
     - string -> string
     - integer -> int64
@@ -339,11 +339,11 @@ Generates a complete, deployable Go MCP server project from the MCP model.
   - Generates struct definitions with JSON tags.
   - Deps: T8.1
 
-- [ ] T9.5 Implement `mint mcp generate` command  Owner: TBD  Est: 1h
+- [x] T9.5 Implement `mint mcp generate` command  Owner: TBD  Est: 1h
   - Acceptance: `mint mcp generate spec.yaml --output ./myserver` produces a directory containing a compilable Go MCP server. `cd myserver && go build ./...` succeeds. No `--lang` flag needed since Go is the only target.
   - Deps: T9.3, T1.3
 
-- [ ] T9.6 Add integration tests for Go MCP server generation  Owner: TBD  Est: 2h
+- [x] T9.6 Add integration tests for Go MCP server generation  Owner: TBD  Est: 2h
   - Acceptance: Tests that:
     - Generated server from petstore spec compiles (`go build`)
     - Generated server starts and responds to MCP initialize request via stdio
@@ -352,7 +352,7 @@ Generates a complete, deployable Go MCP server project from the MCP model.
     - Generated server with auth config includes API key header in HTTP requests
   - Deps: T9.3, T9.5
 
-- [ ] T9.7 Run linter and formatter on E9 code  Owner: TBD  Est: 15m
+- [x] T9.7 Run linter and formatter on E9 code  Owner: TBD  Est: 15m
   - Deps: T9.2 through T9.5
 
 ### Epic E10: MCP Server Generation -- Advanced Features
