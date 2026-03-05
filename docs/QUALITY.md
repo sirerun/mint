@@ -14,10 +14,12 @@
 | Package | Coverage |
 |---------|----------|
 | internal/loader | 82.6% |
+| internal/diff | 84.8% |
+| internal/merge | 88.2% |
 | internal/mcpgen | 65.3% |
 | internal/mcpgen/golang | 82.1% |
 | internal/validate | 74.0% |
-| cmd/mint | 12.4% (CLI wiring) |
+| cmd/mint | 34.6% |
 
 ## Dependencies
 
@@ -25,6 +27,7 @@
 |-----------|---------|---------|
 | pb33f/libopenapi | BSD-3 | OpenAPI parsing |
 | pb33f/ordered-map/v2 | BSD-3 | Ordered map (transitive) |
+| go.yaml.in/yaml/v4 | MIT | YAML serialization (transitive) |
 
 ### Runtime Dependencies (in generated servers)
 
