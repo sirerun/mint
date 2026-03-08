@@ -6,10 +6,11 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /petstore .
 
-FROM alpine:3.20
+FROM gcr.io/distroless/static-debian12
 
-RUN apk add --no-cache ca-certificates
 COPY --from=builder /petstore /usr/local/bin/petstore
+
+USER nonroot:nonroot
 
 ENTRYPOINT ["petstore"]
 CMD ["--transport", "stdio"]
