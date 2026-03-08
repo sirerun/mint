@@ -27,6 +27,10 @@ func runDeploy(args []string) int {
 	switch args[0] {
 	case "gcp":
 		return runDeployGCP(args[1:])
+	case "status":
+		return runDeployStatus(args[1:])
+	case "rollback":
+		return runDeployRollback(args[1:])
 	case "help", "-h", "--help":
 		printDeployUsage()
 		return 0
@@ -63,6 +67,9 @@ func runDeployGCP(args []string) int {
 	fs.Var(&secrets, "secret", "Secret mapping in ENV_VAR=secret-name format (repeatable)")
 
 	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
 		return 1
 	}
 
@@ -106,6 +113,41 @@ func runDeployGCP(args []string) int {
 	}
 
 	fmt.Fprintln(os.Stderr, "deploy gcp: not yet implemented")
+	return 1
+}
+
+func runDeployStatus(args []string) int {
+	fs := flag.NewFlagSet("mint deploy status", flag.ContinueOnError)
+	fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
+	fs.String("region", "us-central1", "GCP region")
+	fs.String("service", "", "Cloud Run service name (required)")
+	fs.String("format", "", "Output format (json)")
+
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 1
+	}
+
+	fmt.Fprintln(os.Stderr, "deploy status: not yet implemented")
+	return 1
+}
+
+func runDeployRollback(args []string) int {
+	fs := flag.NewFlagSet("mint deploy rollback", flag.ContinueOnError)
+	fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
+	fs.String("region", "us-central1", "GCP region")
+	fs.String("service", "", "Cloud Run service name (required)")
+
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 1
+	}
+
+	fmt.Fprintln(os.Stderr, "deploy rollback: not yet implemented")
 	return 1
 }
 
