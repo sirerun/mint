@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sirerun/mint/internal/loader"
@@ -36,6 +37,53 @@ func TestGenerate(t *testing.T) {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			t.Errorf("expected file %s not found", f)
 		}
+	}
+}
+
+func TestGenerateDockerfileContent(t *testing.T) {
+	result, err := loader.Load("../../../testdata/petstore.yaml")
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+
+	server, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting spec: %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(server, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(outputDir, "Dockerfile"))
+	if err != nil {
+		t.Fatalf("reading Dockerfile: %v", err)
+	}
+	content := string(data)
+
+	// Split into builder and runtime stages
+	stages := strings.SplitN(content, "FROM ", 3)
+	if len(stages) < 3 {
+		t.Fatal("expected at least two FROM stages in Dockerfile")
+	}
+	runtimeStage := stages[2]
+
+	if !strings.Contains(content, "gcr.io/distroless/static-debian12") {
+		t.Error("Dockerfile should contain gcr.io/distroless/static-debian12")
+	}
+
+	if !strings.Contains(content, "USER nonroot:nonroot") {
+		t.Error("Dockerfile should contain USER nonroot:nonroot")
+	}
+
+	if strings.Contains(runtimeStage, "alpine") {
+		t.Error("runtime stage should not contain alpine")
+	}
+
+	if strings.Contains(content, "apk add") {
+		t.Error("Dockerfile should not contain apk add")
 	}
 }
 
@@ -77,6 +125,42 @@ func TestGenerateCompiles(t *testing.T) {
 	cmd.Dir = outputDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build failed: %v\n%s", err, out)
+	}
+}
+
+func TestGenerateHealthEndpoint(t *testing.T) {
+	result, err := loader.Load("../../../testdata/petstore.yaml")
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+
+	srv, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting spec: %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(srv, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(outputDir, "server.go"))
+	if err != nil {
+		t.Fatalf("reading server.go: %v", err)
+	}
+
+	content := string(data)
+	checks := []string{
+		"/health",
+		`"status"`,
+		"HealthHandler",
+		"application/json",
+	}
+	for _, check := range checks {
+		if !strings.Contains(content, check) {
+			t.Errorf("server.go missing expected string %q", check)
+		}
 	}
 }
 

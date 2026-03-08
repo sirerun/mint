@@ -6,10 +6,11 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /{{.Name}} .
 
-FROM alpine:3.20
+FROM gcr.io/distroless/static-debian12
 
-RUN apk add --no-cache ca-certificates
 COPY --from=builder /{{.Name}} /usr/local/bin/{{.Name}}
+
+USER nonroot:nonroot
 
 ENTRYPOINT ["{{.Name}}"]
 CMD ["--transport", "stdio"]
