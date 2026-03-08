@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func validConfig() WorkflowConfig {
+func validWorkflowConfig() WorkflowConfig {
 	return WorkflowConfig{
 		ProjectID:                "my-project",
 		Region:                   "us-central1",
@@ -20,7 +20,7 @@ func validConfig() WorkflowConfig {
 
 func TestGenerateWorkflow_ValidYAML(t *testing.T) {
 	dir := t.TempDir()
-	config := validConfig()
+	config := validWorkflowConfig()
 
 	result, err := GenerateWorkflow(config, dir)
 	if err != nil {
@@ -46,7 +46,7 @@ func TestGenerateWorkflow_ValidYAML(t *testing.T) {
 
 func TestGenerateWorkflow_ContainsConfigValues(t *testing.T) {
 	dir := t.TempDir()
-	config := validConfig()
+	config := validWorkflowConfig()
 
 	result, err := GenerateWorkflow(config, dir)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestGenerateWorkflow_ContainsConfigValues(t *testing.T) {
 
 func TestGenerateWorkflow_CreatesDirectory(t *testing.T) {
 	dir := t.TempDir()
-	config := validConfig()
+	config := validWorkflowConfig()
 
 	result, err := GenerateWorkflow(config, dir)
 	if err != nil {
@@ -135,7 +135,7 @@ func TestGenerateWorkflow_MissingRequiredConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := validConfig()
+			config := validWorkflowConfig()
 			tt.modify(&config)
 
 			_, err := GenerateWorkflow(config, t.TempDir())

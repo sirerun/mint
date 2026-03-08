@@ -56,7 +56,7 @@ jobs:
 // to Google Cloud Run. It writes the file to <outputDir>/.github/workflows/deploy-gcp.yml,
 // creating directories as needed.
 func GenerateWorkflow(config WorkflowConfig, outputDir string) (*WorkflowResult, error) {
-	if err := validateConfig(config); err != nil {
+	if err := validateWorkflowConfig(config); err != nil {
 		return nil, err
 	}
 
@@ -87,7 +87,7 @@ func GenerateWorkflow(config WorkflowConfig, outputDir string) (*WorkflowResult,
 	}, nil
 }
 
-func validateConfig(c WorkflowConfig) error {
+func validateWorkflowConfig(c WorkflowConfig) error {
 	switch {
 	case c.ProjectID == "":
 		return fmt.Errorf("projectID is required")
