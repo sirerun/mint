@@ -34,8 +34,8 @@ func NewServer(baseURL, apiKey string) *Server {
 				Type: "object",
 				Properties: map[string]interface{}{
 					"limit": map[string]interface{}{
-						"type":        "integer",
-						"format":      "int32",
+						"type":   "integer",
+						"format": "int32",
 					},
 				},
 			},
@@ -51,10 +51,10 @@ func NewServer(baseURL, apiKey string) *Server {
 				Type: "object",
 				Properties: map[string]interface{}{
 					"name": map[string]interface{}{
-						"type":        "string",
+						"type": "string",
 					},
 					"tag": map[string]interface{}{
-						"type":        "string",
+						"type": "string",
 					},
 				},
 				Required: []string{"name"},
@@ -71,7 +71,7 @@ func NewServer(baseURL, apiKey string) *Server {
 				Type: "object",
 				Properties: map[string]interface{}{
 					"petId": map[string]interface{}{
-						"type":        "string",
+						"type": "string",
 					},
 				},
 				Required: []string{"petId"},

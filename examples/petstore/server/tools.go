@@ -94,4 +94,3 @@ func (s *Server) handleShowPetById(ctx context.Context, request mcp.CallToolRequ
 
 	return mcp.NewToolResultText(string(data)), nil
 }
-
