@@ -174,17 +174,17 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - [x] S15.1.1 Add unit tests with mock Cloud Run client  Est: 45m
   - [x] S15.1.2 Run linter and formatter  Est: 15m
 
-- [ ] T15.2 Implement IAM policy for Cloud Run service  Owner: TBD  Est: 1h
+- [x] T15.2 Implement IAM policy for Cloud Run service  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - In `internal/deploy/gcp/iam.go`.
   - By default: no `allUsers` or `allAuthenticatedUsers` binding. Service requires IAM identity token to invoke.
   - When `--public` flag is set: add `allUsers` with `roles/run.invoker`. Print warning to stderr.
   - Create a dedicated service account `mint-mcp-<service-name>@<project>.iam.gserviceaccount.com` with only `roles/run.invoker` on itself.
   - Acceptance: Default deployment requires IAM auth. `--public` flag allows unauthenticated access with warning.
   - Deps: T15.1
-  - [ ] S15.2.1 Add unit tests for IAM policy construction  Est: 30m
-  - [ ] S15.2.2 Run linter and formatter  Est: 15m
+  - [x] S15.2.1 Add unit tests for IAM policy construction  Est: 30m
+  - [x] S15.2.2 Run linter and formatter  Est: 15m
 
-- [ ] T15.3 Implement Secret Manager integration  Owner: TBD  Est: 1h
+- [x] T15.3 Implement Secret Manager integration  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/secrets.go`.
   - Use `cloud.google.com/go/secretmanager/apiv1`.
   - `--secret` flag accepts `ENV_VAR=secret-name` pairs (repeatable).
@@ -193,10 +193,10 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - Grant the service account `roles/secretmanager.secretAccessor` on each secret.
   - Acceptance: Secrets mounted as env vars. Service account has accessor role. Secrets never in container image.
   - Deps: T15.1, T15.2
-  - [ ] S15.3.1 Add unit tests for Secret Manager provisioning  Est: 30m
-  - [ ] S15.3.2 Run linter and formatter  Est: 15m
+  - [x] S15.3.1 Add unit tests for Secret Manager provisioning  Est: 30m
+  - [x] S15.3.2 Run linter and formatter  Est: 15m
 
-- [ ] T15.4 Implement deployment labels and audit metadata  Owner: TBD  Est: 30m
+- [x] T15.4 Implement deployment labels and audit metadata  Owner: TBD  Est: 30m  Completed: 2026-03-08
   - Add labels to Cloud Run service:
     - `mint-version`: mint CLI version.
     - `spec-hash`: SHA256 of the source OpenAPI spec (first 12 chars).
@@ -205,8 +205,8 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
     - `deployed-at`: UTC timestamp.
   - Acceptance: Labels present on deployed Cloud Run service. Queryable via `gcloud run services describe`.
   - Deps: T15.1
-  - [ ] S15.4.1 Add unit tests for label construction  Est: 15m
-  - [ ] S15.4.2 Run linter and formatter  Est: 15m
+  - [x] S15.4.1 Add unit tests for label construction  Est: 15m
+  - [x] S15.4.2 Run linter and formatter  Est: 15m
 
 - [x] T15.5 Add health endpoint to generated MCP servers  Owner: TBD  Est: 45m  Completed: 2026-03-07
   - Add `/health` endpoint to the generated server's HTTP handler (in `server.go.tmpl`).
@@ -217,7 +217,7 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - [x] S15.5.1 Add unit test for health endpoint in generated server  Est: 30m
   - [x] S15.5.2 Run linter and formatter  Est: 15m
 
-- [ ] T15.6 Implement post-deploy health check  Owner: TBD  Est: 1h
+- [x] T15.6 Implement post-deploy health check  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - After Cloud Run deployment, send HTTP GET to `<service-url>/health`.
   - Retry up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s).
   - If health check passes: print success message with service URL.
@@ -225,18 +225,18 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - For IAM-authenticated services, use the deployer's credentials to call the health endpoint.
   - Acceptance: Healthy deployment prints URL. Unhealthy deployment triggers rollback.
   - Deps: T15.1, T15.5
-  - [ ] S15.6.1 Add unit tests for health check with mock HTTP  Est: 30m
-  - [ ] S15.6.2 Run linter and formatter  Est: 15m
+  - [x] S15.6.1 Add unit tests for health check with mock HTTP  Est: 30m
+  - [x] S15.6.2 Run linter and formatter  Est: 15m
 
-- [ ] T15.7 Implement rollback to previous revision  Owner: TBD  Est: 1h
+- [x] T15.7 Implement rollback to previous revision  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/rollback.go`.
   - Implement `mint deploy rollback --project P --region R --service S` command.
   - List Cloud Run revisions, shift 100% traffic to the previous revision.
   - Also called automatically from T15.6 on health check failure.
   - Acceptance: Traffic shifts to previous revision. Rollback completes in under 10 seconds.
   - Deps: T15.1
-  - [ ] S15.7.1 Add unit tests for rollback logic  Est: 30m
-  - [ ] S15.7.2 Run linter and formatter  Est: 15m
+  - [x] S15.7.1 Add unit tests for rollback logic  Est: 30m
+  - [x] S15.7.2 Run linter and formatter  Est: 15m
 
 ### Epic E16: Cloud Source Repositories Integration
 
@@ -249,41 +249,41 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - [x] S16.1.1 Add unit tests with mock Source Repository client  Est: 30m
   - [x] S16.1.2 Run linter and formatter  Est: 15m
 
-- [ ] T16.2 Implement source code push to Cloud Source Repositories  Owner: TBD  Est: 1.5h
+- [x] T16.2 Implement source code push to Cloud Source Repositories  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
   - After successful deployment, push the generated server source code to the Cloud Source Repository.
   - Use `go-git` library or shell out to `git` to initialize a local repo (if not already), add files, commit, and push.
   - Remote URL: `https://source.developers.google.com/p/<project>/r/mint-mcp-<service-name>`.
   - Use Application Default Credentials for git authentication via credential helper.
   - Acceptance: Source code available in Cloud Source Repository after deploy. Commit message includes spec hash and deploy timestamp.
   - Deps: T16.1, T15.1
-  - [ ] S16.2.1 Add unit tests for git operations (mock)  Est: 30m
-  - [ ] S16.2.2 Run linter and formatter  Est: 15m
+  - [x] S16.2.1 Add unit tests for git operations (mock)  Est: 30m
+  - [x] S16.2.2 Run linter and formatter  Est: 15m
 
 ### Epic E17: Canary Deployments and Traffic Management
 
-- [ ] T17.1 Implement canary deployment with traffic splitting  Owner: TBD  Est: 1.5h
+- [x] T17.1 Implement canary deployment with traffic splitting  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
   - When `--canary N` flag is provided (N is percentage 1-99), deploy the new revision but route only N% of traffic to it.
   - Remaining traffic stays on the current revision.
   - Print instructions for promoting or rolling back.
   - `mint deploy gcp --promote --project P --region R --service S` shifts 100% traffic to the canary revision.
   - Acceptance: `--canary 10` routes 10% traffic to new revision. `--promote` shifts to 100%.
   - Deps: T15.1
-  - [ ] S17.1.1 Add unit tests for traffic splitting logic  Est: 30m
-  - [ ] S17.1.2 Run linter and formatter  Est: 15m
+  - [x] S17.1.1 Add unit tests for traffic splitting logic  Est: 30m
+  - [x] S17.1.2 Run linter and formatter  Est: 15m
 
-- [ ] T17.2 Implement `mint deploy status` command  Owner: TBD  Est: 1h
+- [x] T17.2 Implement `mint deploy status` command  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - Show current Cloud Run service status: revisions, traffic split, URL, last deploy time, labels.
   - Support `--format json` for machine-readable output.
   - Acceptance: `mint deploy status --project P --region R --service S` prints current state. JSON output is valid.
   - Deps: T15.1
-  - [ ] S17.2.1 Add unit tests for status output formatting  Est: 30m
-  - [ ] S17.2.2 Run linter and formatter  Est: 15m
+  - [x] S17.2.1 Add unit tests for status output formatting  Est: 30m
+  - [x] S17.2.2 Run linter and formatter  Est: 15m
 
 ### Epic E18: AI-Native Release Pipeline
 
 Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
 
-- [ ] T18.1 Create GitHub Actions deploy workflow template  Owner: TBD  Est: 1.5h
+- [x] T18.1 Create GitHub Actions deploy workflow template  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
   - Create `templates/workflows/deploy-gcp.yml.tmpl` (embedded template).
   - Workflow triggers on push to main branch when spec file or server source changes.
   - Steps: checkout, setup Go, install mint, generate MCP server (if spec changed), deploy to Cloud Run.
@@ -291,8 +291,8 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - `mint deploy gcp` command generates this workflow when `--ci` flag is passed.
   - Acceptance: Generated workflow file is valid GitHub Actions YAML. Workflow deploys successfully when triggered.
   - Deps: T15.1, T13.2
-  - [ ] S18.1.1 Add unit test for workflow template rendering  Est: 30m
-  - [ ] S18.1.2 Run linter and formatter  Est: 15m
+  - [x] S18.1.1 Add unit test for workflow template rendering  Est: 30m
+  - [x] S18.1.2 Run linter and formatter  Est: 15m
 
 - [x] T18.2 Implement Workload Identity Federation setup  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/workloadidentity.go`.
@@ -307,7 +307,7 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - [x] S18.2.1 Add unit tests with mock IAM/STS clients  Est: 30m
   - [x] S18.2.2 Run linter and formatter  Est: 15m
 
-- [ ] T18.3 Implement deploy orchestrator (end-to-end flow)  Owner: TBD  Est: 2h
+- [x] T18.3 Implement deploy orchestrator (end-to-end flow)  Owner: TBD  Est: 2h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/deploy.go` as the top-level orchestrator.
   - Orchestration sequence:
     1. Validate DeployConfig.
@@ -325,8 +325,8 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - Progress output to stderr. Final URL to stdout (for piping).
   - Acceptance: `mint deploy gcp --project P --region R --source ./server` executes all steps in order. Single command from source to live endpoint.
   - Deps: T14.1, T14.2, T15.1, T15.2, T15.3, T15.4, T15.6, T16.2
-  - [ ] S18.3.1 Add integration test for full deploy flow (mock all GCP clients)  Est: 1h
-  - [ ] S18.3.2 Run linter and formatter  Est: 15m
+  - [x] S18.3.1 Add integration test for full deploy flow (mock all GCP clients)  Est: 1h
+  - [x] S18.3.2 Run linter and formatter  Est: 15m
 
 ### Epic E19: Testing and Documentation
 
@@ -339,14 +339,14 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - Deps: T18.3
   - [ ] S19.1.1 Run linter and formatter  Est: 15m
 
-- [ ] T19.2 Add deploy command to CLI help text  Owner: TBD  Est: 30m
+- [x] T19.2 Add deploy command to CLI help text  Owner: TBD  Est: 30m  Completed: 2026-03-08
   - Update `printUsage()` in main.go to include `deploy` command.
   - Add `--help` text for `deploy gcp`, `deploy status`, `deploy rollback`.
   - Acceptance: `mint help` lists deploy. `mint deploy --help` lists subcommands. All flags documented.
   - Deps: T13.1
-  - [ ] S19.2.1 Run linter and formatter  Est: 15m
+  - [x] S19.2.1 Run linter and formatter  Est: 15m
 
-- [ ] T19.3 Write deploy documentation in README  Owner: TBD  Est: 1h
+- [x] T19.3 Write deploy documentation in README  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - Add deploy section to README covering:
     - Prerequisites (GCP project, billing, gcloud CLI for auth).
     - Quickstart: generate MCP server, deploy to Cloud Run.
@@ -356,7 +356,7 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
     - Rollback procedure.
   - Acceptance: README section is complete with examples. No missing steps.
   - Deps: T18.3
-  - [ ] S19.3.1 Run linter and formatter  Est: 15m
+  - [x] S19.3.1 Run linter and formatter  Est: 15m
 
 - [ ] T19.4 Run final linter and formatter pass on all deploy code  Owner: TBD  Est: 30m
   - `golangci-lint run ./internal/deploy/...`

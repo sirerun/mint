@@ -239,6 +239,93 @@ Use mint in your CI/CD pipelines:
 
 See [`.github/workflows/mint-example.yml`](.github/workflows/mint-example.yml) for a complete example.
 
+## Deploying to Cloud Run
+
+Deploy a generated MCP server to Google Cloud Run with a single command. Deployments enforce SOC2-compliant security defaults out of the box.
+
+### Prerequisites
+
+- A GCP project with billing enabled.
+- The `gcloud` CLI installed for initial authentication only:
+
+```bash
+gcloud auth application-default login
+```
+
+The GCP Go SDK handles all provisioning. No Terraform or `gcloud` commands are used after authentication.
+
+### Quickstart
+
+```bash
+# Generate an MCP server from an OpenAPI spec
+mint mcp generate petstore.yaml --output ./server
+
+# Deploy to Cloud Run
+mint deploy gcp --project my-project --region us-central1 --source ./server
+```
+
+The deploy command builds a container image via Cloud Build, pushes it to Artifact Registry, provisions a Cloud Run service, verifies health, and prints the live endpoint URL.
+
+### Security Controls
+
+All deployments enforce the following by default:
+
+- **IAM authentication** -- no unauthenticated access unless `--public` is explicitly set.
+- **Distroless containers** -- minimal attack surface, no shell in the image.
+- **Non-root execution** -- container runs as `nonroot` user.
+- **TLS 1.2+** -- enforced by Cloud Run's built-in TLS termination.
+- **Secret Manager** -- secrets are mounted as environment variables, never baked into images.
+- **Audit metadata** -- every revision is labeled with commit SHA, spec hash, deployer, and timestamp.
+
+### Secrets Management
+
+Mount secrets from GCP Secret Manager as environment variables using the `--secret` flag:
+
+```bash
+mint deploy gcp --project my-project --source ./server \
+  --secret API_KEY=petstore-api-key \
+  --secret DB_PASSWORD=petstore-db-pass
+```
+
+Secrets are created in Secret Manager if they do not already exist. Set their values via the GCP console or `gcloud`. The service account is automatically granted `secretAccessor` on each secret.
+
+### Canary Deployments
+
+Roll out gradually by sending a percentage of traffic to the new revision:
+
+```bash
+# Deploy with 10% traffic to the new revision
+mint deploy gcp --project my-project --source ./server --canary 10
+
+# After validation, promote to 100%
+mint deploy gcp --promote --project my-project --service petstore-mcp
+```
+
+### CI/CD with GitHub Actions
+
+Generate a deploy-on-push workflow and provision Workload Identity Federation for keyless GCP authentication:
+
+```bash
+mint deploy gcp --project my-project --source ./server --ci
+```
+
+This creates `.github/workflows/deploy-gcp.yml` and configures a Workload Identity Pool and Provider linked to your GitHub repository. No service account keys are needed.
+
+### Status and Rollback
+
+```bash
+# Check deployment status
+mint deploy status --project my-project --service petstore-mcp
+
+# JSON output for scripting
+mint deploy status --project my-project --service petstore-mcp --format json
+
+# Rollback to the previous revision
+mint deploy rollback --project my-project --service petstore-mcp
+```
+
+Rollback shifts 100% of traffic to the previous revision. Automatic rollback also triggers if the post-deploy health check fails.
+
 ## What Gets Generated
 
 Given an OpenAPI spec, mint generates a complete Go project:
