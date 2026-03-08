@@ -122,7 +122,7 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
 
 ### Epic E14: Container Image Build and Registry
 
-- [ ] T14.1 Implement Artifact Registry repository provisioning  Owner: TBD  Est: 1h
+- [x] T14.1 Implement Artifact Registry repository provisioning  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/registry.go`.
   - Use `cloud.google.com/go/artifactregistry/apiv1` to create a Docker repository if it does not exist.
   - Repository name: `mint-mcp-servers` in the specified project and region.
@@ -130,10 +130,10 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
   - Idempotent: skip creation if repository already exists.
   - Acceptance: Repository created on first run, skipped on subsequent runs. Vulnerability scanning enabled.
   - Deps: T13.3
-  - [ ] S14.1.1 Add unit tests with mock Artifact Registry client  Est: 30m
-  - [ ] S14.1.2 Run linter and formatter  Est: 15m
+  - [x] S14.1.1 Add unit tests with mock Artifact Registry client  Est: 30m
+  - [x] S14.1.2 Run linter and formatter  Est: 15m
 
-- [ ] T14.2 Implement Cloud Build image builder  Owner: TBD  Est: 1.5h
+- [x] T14.2 Implement Cloud Build image builder  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/build.go`.
   - Use `cloud.google.com/go/cloudbuild/apiv1/v2` to submit a build.
   - Upload source directory as a tarball to Cloud Storage (build source bucket).
@@ -142,8 +142,8 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
   - Wait for build completion. Stream build logs to stderr.
   - Acceptance: Build completes in under 60 seconds for petstore server. Image available in Artifact Registry.
   - Deps: T14.1
-  - [ ] S14.2.1 Add unit tests with mock Cloud Build client  Est: 45m
-  - [ ] S14.2.2 Run linter and formatter  Est: 15m
+  - [x] S14.2.1 Add unit tests with mock Cloud Build client  Est: 45m
+  - [x] S14.2.2 Run linter and formatter  Est: 15m
 
 - [x] T14.3 Implement distroless Dockerfile update  Owner: TBD  Est: 45m  Completed: 2026-03-07
   - Update the Dockerfile template in `internal/mcpgen/golang/templates/Dockerfile.tmpl` to use `gcr.io/distroless/static-debian12` as the runtime base image.
@@ -157,7 +157,7 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
 
 Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr/004-soc2-security-controls-for-cloud-run.md.
 
-- [ ] T15.1 Implement Cloud Run service provisioning  Owner: TBD  Est: 2h
+- [x] T15.1 Implement Cloud Run service provisioning  Owner: TBD  Est: 2h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/cloudrun.go`.
   - Use `cloud.google.com/go/run/apiv2` to create or update a Cloud Run service.
   - Service configuration:
@@ -171,8 +171,8 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - Idempotent: update existing service if it exists, create if not.
   - Acceptance: Cloud Run service created with correct configuration. Service URL returned.
   - Deps: T14.2, T13.2
-  - [ ] S15.1.1 Add unit tests with mock Cloud Run client  Est: 45m
-  - [ ] S15.1.2 Run linter and formatter  Est: 15m
+  - [x] S15.1.1 Add unit tests with mock Cloud Run client  Est: 45m
+  - [x] S15.1.2 Run linter and formatter  Est: 15m
 
 - [ ] T15.2 Implement IAM policy for Cloud Run service  Owner: TBD  Est: 1h
   - In `internal/deploy/gcp/iam.go`.
@@ -240,14 +240,14 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
 
 ### Epic E16: Cloud Source Repositories Integration
 
-- [ ] T16.1 Implement Cloud Source Repositories provisioning  Owner: TBD  Est: 1h
+- [x] T16.1 Implement Cloud Source Repositories provisioning  Owner: TBD  Est: 1h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/sourcerepo.go`.
   - Use `cloud.google.com/go/sourcerepo/apiv1` to create a repository named `mint-mcp-<service-name>`.
   - Idempotent: skip if repository already exists.
   - Acceptance: Repository created in GCP project. URL returned.
   - Deps: T13.3
-  - [ ] S16.1.1 Add unit tests with mock Source Repository client  Est: 30m
-  - [ ] S16.1.2 Run linter and formatter  Est: 15m
+  - [x] S16.1.1 Add unit tests with mock Source Repository client  Est: 30m
+  - [x] S16.1.2 Run linter and formatter  Est: 15m
 
 - [ ] T16.2 Implement source code push to Cloud Source Repositories  Owner: TBD  Est: 1.5h
   - After successful deployment, push the generated server source code to the Cloud Source Repository.
@@ -294,7 +294,7 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - [ ] S18.1.1 Add unit test for workflow template rendering  Est: 30m
   - [ ] S18.1.2 Run linter and formatter  Est: 15m
 
-- [ ] T18.2 Implement Workload Identity Federation setup  Owner: TBD  Est: 1.5h
+- [x] T18.2 Implement Workload Identity Federation setup  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
   - Create `internal/deploy/gcp/workloadidentity.go`.
   - When `--ci` flag is passed, provision:
     - Workload Identity Pool for GitHub Actions.
@@ -304,8 +304,8 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - Idempotent: skip if pool/provider already exist.
   - Acceptance: GitHub Actions workflow can authenticate to GCP without service account keys.
   - Deps: T13.3
-  - [ ] S18.2.1 Add unit tests with mock IAM/STS clients  Est: 30m
-  - [ ] S18.2.2 Run linter and formatter  Est: 15m
+  - [x] S18.2.1 Add unit tests with mock IAM/STS clients  Est: 30m
+  - [x] S18.2.2 Run linter and formatter  Est: 15m
 
 - [ ] T18.3 Implement deploy orchestrator (end-to-end flow)  Owner: TBD  Est: 2h
   - Create `internal/deploy/gcp/deploy.go` as the top-level orchestrator.

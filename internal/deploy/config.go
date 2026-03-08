@@ -14,23 +14,27 @@ type DeployConfig struct {
 	SourceDir string // path to generated server directory
 
 	// Optional
-	ServiceName  string          // default derived from source dir name
-	ImageTag     string          // default "latest"
-	Public       bool            // allow unauthenticated access
-	Canary       int             // traffic percentage for canary (0 = full rollout)
-	VPC          string          // VPC connector name
-	WAF          bool            // enable Cloud Armor
-	Internal     bool            // internal-only ingress
-	KMSKey       string          // CMEK encryption key
-	Timeout      int             // request timeout in seconds (default 300)
-	MaxInstances int             // default 10
-	MinInstances int             // default 0
-	Secrets      []SecretMapping // ENV_VAR=secret-name pairs
-	CI           bool            // generate CI workflow
-	Promote      bool            // promote canary to 100%
-	CPUAlways    bool            // allocate CPU when idle (for SSE)
-	DebugImage   bool            // use alpine base for debugging
-	NoSourceRepo bool            // skip Cloud Source Repositories push
+	ServiceName  string            // default derived from source dir name
+	ImageTag     string            // default "latest"
+	Port         int               // container port (default 8080)
+	EnvVars      map[string]string // environment variables
+	Memory       string            // memory limit (e.g. "512Mi")
+	CPU          string            // CPU limit (e.g. "1")
+	Public       bool              // allow unauthenticated access
+	Canary       int               // traffic percentage for canary (0 = full rollout)
+	VPC          string            // VPC connector name
+	WAF          bool              // enable Cloud Armor
+	Internal     bool              // internal-only ingress
+	KMSKey       string            // CMEK encryption key
+	Timeout      int               // request timeout in seconds (default 300)
+	MaxInstances int               // default 10
+	MinInstances int               // default 0
+	Secrets      []SecretMapping   // ENV_VAR=secret-name pairs
+	CI           bool              // generate CI workflow
+	Promote      bool              // promote canary to 100%
+	CPUAlways    bool              // allocate CPU when idle (for SSE)
+	DebugImage   bool              // use alpine base for debugging
+	NoSourceRepo bool              // skip Cloud Source Repositories push
 }
 
 // SecretMapping maps an environment variable to a Secret Manager secret.
