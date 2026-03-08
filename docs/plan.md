@@ -1,71 +1,51 @@
-# Mint -- Open Source OpenAPI-to-MCP Toolchain
-
-## Project Name Candidates
-
-The project lives under the **Sire Run** organization (`github.com/sirerun`). Five name candidates that align with the brand identity -- evoking authority ("sire"), motion ("run"), and craftsmanship:
-
-1. **Sireforge** -- The sire forges MCP servers from API specs. Strong, commanding, implies craftsmanship. `github.com/sirerun/sireforge`
-2. **Rungate** -- A gateway that runs your API as MCP tools. Compact, memorable, plays on "run". `github.com/sirerun/rungate`
-3. **Siremcp** -- Direct and unambiguous. The sire of MCP servers. Easy to search, easy to type. `github.com/sirerun/siremcp`
-4. **Ironspec** -- Iron-clad specs, forged into servers. Pairs well with "sirerun" as the org. `github.com/sirerun/ironspec`
-5. **Sirecast** -- The sire casts (generates) servers from molds (specs). Evokes metalwork and precision. `github.com/sirerun/sirecast`
-
-The plan below uses **Mint** as a placeholder. Replace with the chosen name before implementation begins.
-
----
+# Mint -- Cloud Deployment for MCP Servers
 
 ## Context
 
+See docs/design.md for full project context, architecture, and conventions from completed v0.1.0 work.
+
 ### Problem Statement
 
-The Model Context Protocol (MCP) is rapidly becoming the standard way AI agents interact with external services. Today, building an MCP server from an existing API requires manually translating an OpenAPI spec into tool definitions, writing transport handlers, and wiring up authentication -- tedious, error-prone work that developers repeat for every API.
+Mint generates production-quality Go MCP servers from OpenAPI specs, but deploying these servers to production requires manual infrastructure setup -- provisioning container registries, configuring Cloud Run services, setting up IAM policies, managing secrets, and wiring CI/CD pipelines. This manual process is slow, error-prone, and incompatible with AI-native development workflows where features should be released at the speed of thought.
 
-The Speakeasy CLI offers MCP server generation but locks users into a proprietary platform with mandatory authentication, telemetry, and closed-source generation engines. There is no open-source tool that takes an OpenAPI spec and produces a fully functional, ready-to-deploy MCP server.
-
-**Mint** is an open-source Go CLI that turns any OpenAPI 3.0/3.1 specification into a working Go MCP server. It also provides the foundational OpenAPI tooling (validation, linting, diffing, merging, transformation) needed to prepare specs for generation. The ultimate deliverable is: `mint mcp generate spec.yaml --output ./server` produces a deployable MCP server written in Go.
+The `mint deploy` command will automate the full deployment lifecycle: build a container image, push it to a registry, provision cloud infrastructure, deploy the MCP server, verify health, and roll back on failure -- all in a single command with SOC2-compliant security defaults.
 
 ### Objectives
 
-1. **Primary goal**: Generate production-quality Go MCP servers from OpenAPI specs with a single command.
-2. Build foundational OpenAPI tooling (lint, diff, merge, transform, overlay) as prerequisites for clean MCP generation.
-3. Produce MCP servers that conform to the MCP specification with stdio and HTTP/SSE transports.
-4. Map OpenAPI operations to MCP tools with typed input schemas derived from request parameters and bodies.
-5. Support authentication passthrough (API key, Bearer token, OAuth2).
-6. Release under Apache 2.0 license at `github.com/sirerun/<chosen-name>`.
-7. Deliver a polished developer experience: clear errors, JSON output, offline operation, no telemetry.
+1. Add a `mint deploy gcp` command that deploys a generated MCP server to Google Cloud Run with a single invocation.
+2. Enforce SOC2-compliant security controls by default (IAM auth, Secret Manager, audit logs, distroless containers, TLS 1.2+).
+3. Use the GCP Go SDK for all provisioning -- no Terraform, no gcloud CLI dependency. Decision rationale: docs/adr/002-go-sdk-over-terraform-for-provisioning.md.
+4. Host deployed MCP server source code in Google Cloud Source Repositories for convenience.
+5. Optimize the release pipeline for AI-native workflows with sub-minute deploys, automated health checks, and instant rollback. Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
+6. Provide a GitHub Actions workflow template for automated deploy-on-push.
 
 ### Non-Goals
 
-- Full-parity SDK generation with Speakeasy (10+ languages).
-- Platform/SaaS features (billing, registry, studio, accounts).
-- Terraform provider generation.
-- Agent/AI skill integrations.
-- Visual/web-based UI.
-- MCP client generation (only servers).
-- TypeScript MCP server generation (Go only for v1).
+- AWS or Azure deployment targets (future work, not in this scope).
+- Kubernetes (GKE) orchestration -- Cloud Run is the target, not GKE.
+- Custom domain configuration (users can do this via GCP console).
+- Multi-region deployment (single region for v1).
+- MCP server monitoring dashboards (Cloud Logging and Cloud Monitoring are used but no custom dashboards are provisioned).
+- Cost optimization features (reserved instances, committed use discounts).
 
 ### Constraints and Assumptions
 
-- Written in Go, using the standard library and minimal dependencies.
-- CLI built with the standard `flag` package, not cobra/viper.
-- Uses `pb33f/libopenapi` (BSD-3) for OpenAPI parsing.
-- Uses `pb33f/vacuum` (MIT) for linting engine.
-- No dependency on any Speakeasy proprietary libraries.
-- Must compile to a single static binary for Linux, macOS, and Windows.
-- All output must be deterministic for CI/CD use.
-- Generated MCP servers use only the Go standard library and `github.com/mark3labs/mcp-go` SDK.
-- MCP specification version targeted: latest stable (2025-03-26 or later).
+- Users must have a GCP project with billing enabled.
+- Users must have the `gcloud` CLI installed for initial authentication only (`gcloud auth application-default login`). Not used for provisioning.
+- The GCP Go SDK packages will be added as dependencies to the mint binary.
+- Cloud Run supports HTTP/SSE which maps to MCP HTTP/SSE transport.
+- Cloud Run request timeout must be extended (up to 3600s) for long-running SSE connections.
+- Generated MCP servers already include a Dockerfile template (from E10.5).
 
 ### Success Metrics
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| MCP server generation from petstore spec | Produces a working server with all operations as tools | Manual test: connect Claude Desktop to generated server |
-| Spec validation accuracy | Catch 95%+ of common OpenAPI errors | Comparison against vacuum/spectral test suites |
-| CLI response time | Under 2s for specs up to 50K lines | Benchmarking with real-world specs |
-| Test coverage | 80%+ line coverage | `go test -cover` |
-| GitHub stars (6 months) | 500+ | GitHub insights |
-| Generated MCP servers used in production | 5+ public repos using mint-generated servers | GitHub search |
+| Deploy time (spec to live endpoint) | Under 90 seconds | Timed from `mint deploy gcp` invocation to health check pass |
+| Security controls enabled by default | 100% of SOC2-required controls | Audit of deployed Cloud Run service configuration |
+| Rollback time | Under 10 seconds | Timed from rollback command to traffic shift |
+| Idempotent deploys | Running deploy twice produces identical state | Automated test: deploy, deploy again, verify no drift |
+| AI agent deploy success rate | 95%+ | Deploy triggered by AI coding assistant succeeds without human intervention |
 
 ---
 
@@ -73,369 +53,360 @@ The Speakeasy CLI offers MCP server generation but locks users into a proprietar
 
 ### In Scope
 
-1. **OpenAPI Parsing** -- Load, parse, and resolve OpenAPI 3.0/3.1 specs from files, URLs, and stdin.
-2. **Validation and Linting** -- Validate specs with built-in and custom rulesets. Surface errors, warnings, and info with file/line references.
-3. **Spec Diffing** -- Compare two OpenAPI specs and output breaking/non-breaking changes.
-4. **Spec Merging** -- Merge multiple OpenAPI documents into one, with conflict detection.
-5. **Overlay Application** -- Apply OpenAPI Overlay documents per the Overlay specification.
-6. **Spec Transformation** -- Filter operations, remove unused components, normalize, format, convert Swagger 2.0.
-7. **MCP Server Generation (Go)** -- Generate a complete, deployable Go MCP server from an OpenAPI spec. This is the primary deliverable.
-8. **CI/CD Integration** -- GitHub Action for running mint in pipelines.
-9. **Machine-Readable Output** -- JSON output mode for all commands.
+1. **`mint deploy gcp` command** -- Single command to build, push, and deploy an MCP server to Cloud Run.
+2. **GCP resource provisioning via Go SDK** -- Artifact Registry repo, Cloud Run service, IAM policies, Secret Manager secrets, Cloud Source Repositories.
+3. **SOC2-compliant defaults** -- IAM auth, distroless containers, Secret Manager, audit logs, non-root execution, TLS 1.2+.
+4. **Health check verification** -- Post-deploy MCP initialize request to verify the server is functional.
+5. **Automated rollback** -- Revert to previous Cloud Run revision on health check failure.
+6. **Cloud Source Repositories integration** -- Push generated server source to a GCP-hosted git repository.
+7. **GitHub Actions workflow template** -- Automated deploy-on-push workflow.
+8. **Canary deployments** -- Optional traffic splitting for gradual rollout.
+9. **`mint deploy status`** -- Check deployment status and current revision.
+10. **`mint deploy rollback`** -- Manual rollback to a previous revision.
 
 ### Out of Scope
 
-- Full production-grade SDK generation (client libraries in 10+ languages).
-- TypeScript or other non-Go MCP server generation (may be added in a future version).
-- SaaS platform features (auth, billing, registry).
-- Terraform provider generation.
-- MCP client generation.
-- Visual/web-based UI.
-- OpenAPI 2.0 (Swagger) native support (conversion from 2.0 is in scope).
-- Code sample generation as a standalone feature (samples are embedded in generated MCP servers).
+- AWS, Azure, or other cloud provider deployment.
+- Kubernetes/GKE deployment.
+- Custom domain and SSL certificate management.
+- Multi-region or multi-cluster deployment.
+- Cost management and billing alerts.
+- Monitoring dashboards.
+- Deployment approval workflows (manual gates).
 
 ### Deliverables Table
 
 | ID | Description | Owner | Acceptance Criteria |
 |----|-------------|-------|---------------------|
-| D1 | CLI binary (`mint`) with all commands | TBD | All commands pass integration tests, binary runs on Linux/macOS/Windows |
-| D2 | Linting engine with 3 built-in rulesets | TBD | Rulesets produce correct results on 20+ test specs |
-| D3 | Spec diff engine | TBD | Detects breaking and non-breaking changes, JSON output matches expected |
-| D4 | Spec merge engine | TBD | Merges 3+ specs with conflict detection, output is valid OpenAPI |
-| D5 | Overlay engine | TBD | Applies overlay per specification, output matches expected |
-| D6 | Go MCP server generator | TBD | Generated server starts, registers tools for all operations, handles requests via stdio and HTTP/SSE |
-| D7 | GitHub Action | TBD | Action runs in workflow, validates spec, posts results to PR |
-| D8 | Documentation (README, CLI help, examples) | TBD | README covers install, quickstart, all commands, MCP server usage guide |
-| D9 | Release pipeline (goreleaser) | TBD | Tags produce GitHub releases with binaries for 3 platforms |
+| D10 | `mint deploy gcp` command | TBD | Deploys generated MCP server to Cloud Run, health check passes, SOC2 controls verified |
+| D11 | GCP provisioning library (`internal/deploy/gcp/`) | TBD | Provisions all required GCP resources idempotently via Go SDK |
+| D12 | Cloud Source Repositories integration | TBD | Pushes generated server code to GCP-hosted git repo |
+| D13 | GitHub Actions deploy workflow template | TBD | Workflow triggers on push, deploys to Cloud Run, rolls back on failure |
+| D14 | SOC2 security controls documentation | TBD | Documents all security controls, maps to SOC2 trust service criteria |
+| D15 | Canary deployment support | TBD | `--canary` flag splits traffic between old and new revisions |
 
 ---
 
 ## Checkable Work Breakdown
 
-### Epic E1: Project Bootstrap
+### Epic E13: Deploy Command Foundation
 
-- [x] T1.1 Initialize Go module at `github.com/sirerun/mint`  Owner: TBD  Est: 30m
-  - Acceptance: `go build ./...` succeeds. Module path is correct.
-- [x] T1.2 Set up directory structure (`cmd/`, `internal/`, `pkg/`, `testdata/`, `templates/`)  Owner: TBD  Est: 30m
-  - Acceptance: Directories exist. A placeholder `main.go` compiles. `templates/` has subdirectory `mcp-go/`.
-- [x] T1.3 Create CLI entry point with `flag` package and subcommand dispatch  Owner: TBD  Est: 1h
-  - Acceptance: `mint help`, `mint version`, and unknown subcommands produce correct output.
-  - Risk: Subcommand dispatch with `flag` requires manual routing. Keep it simple with a switch statement.
-- [x] T1.4 Add unit tests for CLI dispatch  Owner: TBD  Est: 30m
-  - Acceptance: Tests cover help, version, unknown command.
-- [x] T1.5 Set up CI with GitHub Actions (build, test, lint)  Owner: TBD  Est: 1h
-  - Acceptance: Push triggers build+test+lint. Badge in README.
-  - Deps: T1.1, T1.2
-- [x] T1.6 Configure golangci-lint with a baseline config  Owner: TBD  Est: 30m
-  - Acceptance: `golangci-lint run` passes on initial codebase.
-  - Deps: T1.2
-- [x] T1.7 Set up goreleaser for cross-platform binary releases  Owner: TBD  Est: 1h
-  - Acceptance: `goreleaser release --snapshot` produces binaries for linux/darwin/windows amd64+arm64.
-  - Deps: T1.1, T1.3
+- [ ] T13.1 Add `deploy` subcommand dispatch to CLI  Owner: TBD  Est: 45m
+  - Add `case "deploy"` to main.go switch statement.
+  - Create `cmd/mint/deploy.go` with subcommand dispatch for `gcp`, `status`, `rollback`.
+  - Wire up `--help` flag.
+  - Acceptance: `mint deploy --help` prints usage. `mint deploy gcp --help` prints GCP-specific flags.
+  - Deps: none
+  - [ ] S13.1.1 Add unit tests for deploy CLI dispatch  Est: 30m
+  - [ ] S13.1.2 Run linter and formatter  Est: 15m
 
-### Epic E2: OpenAPI Parsing and Loading
+- [ ] T13.2 Define deploy configuration model  Owner: TBD  Est: 1h
+  - Create `internal/deploy/config.go` with structs:
+    - `DeployConfig` (project ID, region, service name, source dir, image tag, auth settings, canary percentage, vpc, waf, internal, public flags)
+    - `DeployResult` (service URL, revision name, status, error)
+  - Parse flags into DeployConfig in `cmd/mint/deploy.go`.
+  - Flags: `--project`, `--region` (default us-central1), `--service` (default from spec title), `--source` (path to generated server dir), `--public` (default false), `--canary` (percentage, default 0 meaning full rollout), `--vpc`, `--waf`, `--internal`, `--kms-key`, `--timeout` (Cloud Run request timeout, default 300s), `--max-instances` (default 10), `--min-instances` (default 0).
+  - Acceptance: All flags parse correctly. Validation rejects missing required flags (project, source).
+  - Deps: T13.1
+  - [ ] S13.2.1 Add unit tests for config parsing and validation  Est: 30m
+  - [ ] S13.2.2 Run linter and formatter  Est: 15m
 
-- [x] T2.1 Implement spec loader (file path, URL, stdin)  Owner: TBD  Est: 1.5h
-  - Acceptance: Loads YAML and JSON specs from local files, HTTP URLs, and stdin pipe.
-  - Uses `pb33f/libopenapi` for parsing.
-- [x] T2.2 Implement spec resolution (resolve `$ref` references)  Owner: TBD  Est: 1h
-  - Acceptance: Specs with local and remote `$ref` references are fully resolved.
-  - Note: libopenapi handles $ref resolution via AllowFileReferences/AllowRemoteReferences config.
-  - Deps: T2.1
-- [x] T2.3 Add error reporting with file path and line number  Owner: TBD  Est: 1h
-  - Acceptance: Parse errors include file name and line number. JSON output mode includes structured error objects.
-  - Deps: T2.1
-- [x] T2.4 Add unit and integration tests for spec loading  Owner: TBD  Est: 1h
-  - Acceptance: Tests cover YAML, JSON, URL loading, invalid input, stdin. 90%+ coverage for loader package.
-  - Deps: T2.1, T2.2, T2.3
-- [x] T2.5 Run linter and formatter on E2 code  Owner: TBD  Est: 15m
-  - Deps: T2.1, T2.2, T2.3
+- [ ] T13.3 Implement GCP authentication helper  Owner: TBD  Est: 45m
+  - Create `internal/deploy/gcp/auth.go`.
+  - Use `google.golang.org/api/option` and Application Default Credentials.
+  - Detect if credentials are available. Print clear error message if not, instructing user to run `gcloud auth application-default login`.
+  - Acceptance: Returns authenticated clients. Clear error on missing credentials.
+  - Deps: T13.2
+  - [ ] S13.3.1 Add unit tests for auth helper (mock credentials)  Est: 30m
+  - [ ] S13.3.2 Run linter and formatter  Est: 15m
 
-### Epic E3: Validation and Linting
+### Epic E14: Container Image Build and Registry
 
-- [x] T3.1 Integrate `pb33f/vacuum` as linting backend  Owner: TBD  Est: 1.5h
-  - Note: vacuum repo not available. Implemented custom validation using libopenapi directly.
-  - Deps: T2.1
-- [x] T3.2 Implement `mint lint` command  Owner: TBD  Est: 1h
-  - Acceptance: `mint lint spec.yaml` outputs errors/warnings with severity, rule ID, path, line number.
-  - Deps: T3.1, T1.3
-- [x] T3.3 Add JSON output mode for lint results  Owner: TBD  Est: 45m
-  - Acceptance: `mint validate --format json spec.yaml` outputs valid JSON array of diagnostics.
-  - Deps: T3.2
-- [x] T3.4 Implement configurable rulesets (recommended, strict, minimal)  Owner: TBD  Est: 1.5h
-  - Acceptance: `--ruleset` flag selects ruleset. Custom ruleset file path accepted.
-  - Deps: T3.1
-- [x] T3.5 Implement `mint validate` command (structural validation only)  Owner: TBD  Est: 1h
-  - Acceptance: Reports structural OpenAPI compliance errors (missing required fields, invalid types).
-  - Deps: T2.1, T1.3
-- [x] T3.6 Add colored terminal output for lint/validate results  Owner: TBD  Est: 45m
-  - Acceptance: Errors in red, warnings in yellow, info in blue. Colors disabled when not a TTY.
-  - Deps: T3.2, T3.5
-- [x] T3.7 Add unit and integration tests for linting  Owner: TBD  Est: 1h
-  - Acceptance: Tests cover JSON output, known-bad specs produce expected diagnostics.
-  - Deps: T3.2, T3.3, T3.4, T3.5
-- [x] T3.8 Run linter and formatter on E3 code  Owner: TBD  Est: 15m
-  - Deps: T3.1 through T3.6
+- [ ] T14.1 Implement Artifact Registry repository provisioning  Owner: TBD  Est: 1h
+  - Create `internal/deploy/gcp/registry.go`.
+  - Use `cloud.google.com/go/artifactregistry/apiv1` to create a Docker repository if it does not exist.
+  - Repository name: `mint-mcp-servers` in the specified project and region.
+  - Enable vulnerability scanning by default.
+  - Idempotent: skip creation if repository already exists.
+  - Acceptance: Repository created on first run, skipped on subsequent runs. Vulnerability scanning enabled.
+  - Deps: T13.3
+  - [ ] S14.1.1 Add unit tests with mock Artifact Registry client  Est: 30m
+  - [ ] S14.1.2 Run linter and formatter  Est: 15m
 
-### Epic E4: Spec Diffing
+- [ ] T14.2 Implement Cloud Build image builder  Owner: TBD  Est: 1.5h
+  - Create `internal/deploy/gcp/build.go`.
+  - Use `cloud.google.com/go/cloudbuild/apiv1/v2` to submit a build.
+  - Upload source directory as a tarball to Cloud Storage (build source bucket).
+  - Build steps: multi-stage Dockerfile (already generated by mint). Build produces image tagged with git commit SHA and `latest`.
+  - Image pushed to Artifact Registry repository from T14.1.
+  - Wait for build completion. Stream build logs to stderr.
+  - Acceptance: Build completes in under 60 seconds for petstore server. Image available in Artifact Registry.
+  - Deps: T14.1
+  - [ ] S14.2.1 Add unit tests with mock Cloud Build client  Est: 45m
+  - [ ] S14.2.2 Run linter and formatter  Est: 15m
 
-- [x] T4.1 Implement diff engine using `pb33f/openapi-changes`  Owner: TBD  Est: 2h
-  - Note: Implemented custom diff engine (openapi-changes repo unavailable). Compares paths, operations, parameters.
-  - Deps: T2.1
-- [x] T4.2 Implement `mint diff` command  Owner: TBD  Est: 1h
-  - Acceptance: `mint diff old.yaml new.yaml` outputs human-readable change list. `--format json` outputs structured JSON.
-  - Deps: T4.1, T1.3
-- [x] T4.3 Add breaking change detection and exit code  Owner: TBD  Est: 45m
-  - Acceptance: Exit code 1 when breaking changes found, 0 otherwise. `--fail-on-breaking` flag.
-  - Deps: T4.2
-- [x] T4.4 Add unit and integration tests for diffing  Owner: TBD  Est: 1h
-  - Acceptance: Tests cover additions, removals, modifications, breaking vs non-breaking. JSON output validated.
-  - Deps: T4.1, T4.2, T4.3
-- [x] T4.5 Run linter and formatter on E4 code  Owner: TBD  Est: 15m
-  - Deps: T4.1, T4.2, T4.3
+- [ ] T14.3 Implement distroless Dockerfile update  Owner: TBD  Est: 45m
+  - Update the Dockerfile template in `internal/mcpgen/golang/templates/Dockerfile.tmpl` to use `gcr.io/distroless/static-debian12` as the runtime base image.
+  - Ensure the binary runs as non-root user (USER nonroot:nonroot).
+  - Acceptance: Generated Dockerfile uses distroless base. Container has no shell. Process runs as non-root.
+  - Deps: none
+  - [ ] S14.3.1 Add unit test verifying Dockerfile template output  Est: 30m
+  - [ ] S14.3.2 Run linter and formatter  Est: 15m
 
-### Epic E5: Spec Merging
+### Epic E15: Cloud Run Deployment with SOC2 Controls
 
-- [x] T5.1 Implement merge engine for combining multiple OpenAPI documents  Owner: TBD  Est: 2h
-  - Acceptance: Merges paths, components, tags from 2+ specs. Detects and reports conflicts (duplicate paths, operationIds).
-  - Deps: T2.1
-- [x] T5.2 Implement `mint merge` command  Owner: TBD  Est: 1h
-  - Acceptance: `mint merge a.yaml b.yaml -o merged.yaml` produces valid merged spec. Conflicts reported to stderr.
-  - Deps: T5.1, T1.3
-- [x] T5.3 Add conflict resolution strategies (fail, rename, skip)  Owner: TBD  Est: 1h
-  - Acceptance: `--on-conflict` flag controls behavior. Default is fail.
-  - Deps: T5.2
-- [x] T5.4 Add unit and integration tests for merging  Owner: TBD  Est: 1.5h
-  - Acceptance: Tests cover 2-spec merge, 3-spec merge, conflicts, resolution strategies.
-  - Deps: T5.1, T5.2, T5.3
-- [x] T5.5 Run linter and formatter on E5 code  Owner: TBD  Est: 15m
-  - Deps: T5.1, T5.2, T5.3
+Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr/004-soc2-security-controls-for-cloud-run.md.
 
-### Epic E6: Overlay Application
+- [ ] T15.1 Implement Cloud Run service provisioning  Owner: TBD  Est: 2h
+  - Create `internal/deploy/gcp/cloudrun.go`.
+  - Use `cloud.google.com/go/run/apiv2` to create or update a Cloud Run service.
+  - Service configuration:
+    - Container image from Artifact Registry (from T14.2).
+    - Request timeout from `--timeout` flag.
+    - Max instances from `--max-instances` flag.
+    - Min instances from `--min-instances` flag.
+    - CPU allocation: CPU is only allocated during request processing (default). Use `--cpu-always` for SSE transport.
+    - Port: 8080 (default Cloud Run port).
+    - Startup probe: HTTP GET on `/health` (to be added to generated server).
+  - Idempotent: update existing service if it exists, create if not.
+  - Acceptance: Cloud Run service created with correct configuration. Service URL returned.
+  - Deps: T14.2, T13.2
+  - [ ] S15.1.1 Add unit tests with mock Cloud Run client  Est: 45m
+  - [ ] S15.1.2 Run linter and formatter  Est: 15m
 
-- [x] T6.1 Implement OpenAPI Overlay specification parser  Owner: TBD  Est: 1.5h
-  - Acceptance: Parses overlay YAML/JSON documents per the Overlay specification.
-  - Deps: T2.1
-- [x] T6.2 Implement overlay application engine  Owner: TBD  Est: 2h
-  - Acceptance: Applies actions (update, remove) to target spec via JSONPath selectors. Output is valid OpenAPI.
-  - Deps: T6.1
-- [x] T6.3 Implement `mint overlay` command  Owner: TBD  Est: 45m
-  - Acceptance: `mint overlay apply spec.yaml overlay.yaml -o out.yaml` produces correct output.
-  - Deps: T6.2, T1.3
-- [x] T6.4 Add unit and integration tests for overlay  Owner: TBD  Est: 1h
-  - Acceptance: Tests cover update actions, remove actions, nested paths, invalid overlay documents.
-  - Deps: T6.1, T6.2, T6.3
-- [x] T6.5 Run linter and formatter on E6 code  Owner: TBD  Est: 15m
-  - Deps: T6.1, T6.2, T6.3
+- [ ] T15.2 Implement IAM policy for Cloud Run service  Owner: TBD  Est: 1h
+  - In `internal/deploy/gcp/iam.go`.
+  - By default: no `allUsers` or `allAuthenticatedUsers` binding. Service requires IAM identity token to invoke.
+  - When `--public` flag is set: add `allUsers` with `roles/run.invoker`. Print warning to stderr.
+  - Create a dedicated service account `mint-mcp-<service-name>@<project>.iam.gserviceaccount.com` with only `roles/run.invoker` on itself.
+  - Acceptance: Default deployment requires IAM auth. `--public` flag allows unauthenticated access with warning.
+  - Deps: T15.1
+  - [ ] S15.2.1 Add unit tests for IAM policy construction  Est: 30m
+  - [ ] S15.2.2 Run linter and formatter  Est: 15m
 
-### Epic E7: Spec Transformation
+- [ ] T15.3 Implement Secret Manager integration  Owner: TBD  Est: 1h
+  - Create `internal/deploy/gcp/secrets.go`.
+  - Use `cloud.google.com/go/secretmanager/apiv1`.
+  - `--secret` flag accepts `ENV_VAR=secret-name` pairs (repeatable).
+  - Create secrets in Secret Manager if they do not exist (user must set values via GCP console or gcloud).
+  - Mount secrets as environment variables in Cloud Run service.
+  - Grant the service account `roles/secretmanager.secretAccessor` on each secret.
+  - Acceptance: Secrets mounted as env vars. Service account has accessor role. Secrets never in container image.
+  - Deps: T15.1, T15.2
+  - [ ] S15.3.1 Add unit tests for Secret Manager provisioning  Est: 30m
+  - [ ] S15.3.2 Run linter and formatter  Est: 15m
 
-- [x] T7.1 Implement filter-operations transform (by tag, path pattern, method)  Owner: TBD  Est: 1.5h
-  - Acceptance: Filters operations and removes unused components after filtering.
-  - Deps: T2.1
-- [x] T7.2 Implement remove-unused-components transform  Owner: TBD  Est: 1h
-  - Acceptance: Removes schemas, parameters, responses not referenced by any operation.
-  - Deps: T2.1
-- [x] T7.3 Implement format/normalize transform (sort keys, consistent style)  Owner: TBD  Est: 1h
-  - Acceptance: Output has sorted keys, consistent indentation. Idempotent (running twice produces same output).
-  - Deps: T2.1
-- [x] T7.4 Implement Swagger 2.0 to OpenAPI 3.0 conversion  Owner: TBD  Est: 2h
-  - Acceptance: Converts Swagger 2.0 petstore to valid OpenAPI 3.0. Handles definitions, parameters, responses.
-  - Deps: T2.1
-- [x] T7.5 Implement `mint transform` command with subcommands  Owner: TBD  Est: 1h
-  - Acceptance: `mint transform filter`, `mint transform cleanup`, `mint transform format` all work.
-  - Note: Swagger 2.0 convert deferred to future release.
-  - Deps: T7.1, T7.2, T7.3, T1.3
-- [x] T7.6 Add unit and integration tests for transformations  Owner: TBD  Est: 1.5h
-  - Acceptance: Each transform tested with before/after specs. Idempotency verified for format.
-  - Deps: T7.1 through T7.5
-- [x] T7.7 Run linter and formatter on E7 code  Owner: TBD  Est: 15m
-  - Deps: T7.1 through T7.5
+- [ ] T15.4 Implement deployment labels and audit metadata  Owner: TBD  Est: 30m
+  - Add labels to Cloud Run service:
+    - `mint-version`: mint CLI version.
+    - `spec-hash`: SHA256 of the source OpenAPI spec (first 12 chars).
+    - `commit-sha`: git commit SHA of the source directory (if available).
+    - `deployed-by`: username from `os/user.Current()`.
+    - `deployed-at`: UTC timestamp.
+  - Acceptance: Labels present on deployed Cloud Run service. Queryable via `gcloud run services describe`.
+  - Deps: T15.1
+  - [ ] S15.4.1 Add unit tests for label construction  Est: 15m
+  - [ ] S15.4.2 Run linter and formatter  Est: 15m
 
-### Epic E8: MCP Server Generation -- Core Engine
+- [ ] T15.5 Add health endpoint to generated MCP servers  Owner: TBD  Est: 45m
+  - Add `/health` endpoint to the generated server's HTTP handler (in `server.go.tmpl`).
+  - Returns 200 OK with `{"status": "ok"}` body.
+  - Used by Cloud Run startup probe and by `mint deploy` health check.
+  - Acceptance: Generated server responds to `GET /health` with 200. Existing MCP functionality unaffected.
+  - Deps: none
+  - [ ] S15.5.1 Add unit test for health endpoint in generated server  Est: 30m
+  - [ ] S15.5.2 Run linter and formatter  Est: 15m
 
-This is the primary epic. It builds the engine that maps OpenAPI operations to MCP tools and generates server code.
+- [ ] T15.6 Implement post-deploy health check  Owner: TBD  Est: 1h
+  - After Cloud Run deployment, send HTTP GET to `<service-url>/health`.
+  - Retry up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s).
+  - If health check passes: print success message with service URL.
+  - If health check fails: trigger automatic rollback to previous revision (T15.7).
+  - For IAM-authenticated services, use the deployer's credentials to call the health endpoint.
+  - Acceptance: Healthy deployment prints URL. Unhealthy deployment triggers rollback.
+  - Deps: T15.1, T15.5
+  - [ ] S15.6.1 Add unit tests for health check with mock HTTP  Est: 30m
+  - [ ] S15.6.2 Run linter and formatter  Est: 15m
 
-- [x] T8.1 Design OpenAPI-to-MCP mapping model  Owner: TBD  Est: 1.5h
-  - Acceptance: Go struct definitions in `internal/mcpgen/model.go` that represent:
-    - `MCPServer` (name, version, description, tools, auth config)
-    - `MCPTool` (name from operationId, description from summary/description, inputSchema from parameters+requestBody, HTTP method, path, response schema)
-    - `MCPToolParam` (name, type, description, required, enum values, default)
-    - `MCPAuth` (type: apiKey/bearer/oauth2, header name, env var name)
-  - Document: each OpenAPI operation becomes one MCP tool. OperationId becomes the tool name (converted to snake_case). Path params, query params, header params, and request body fields become tool input properties. The tool's inputSchema is a JSON Schema object derived from the OpenAPI parameter schemas and request body schema.
-  - Deps: T2.1
+- [ ] T15.7 Implement rollback to previous revision  Owner: TBD  Est: 1h
+  - Create `internal/deploy/gcp/rollback.go`.
+  - Implement `mint deploy rollback --project P --region R --service S` command.
+  - List Cloud Run revisions, shift 100% traffic to the previous revision.
+  - Also called automatically from T15.6 on health check failure.
+  - Acceptance: Traffic shifts to previous revision. Rollback completes in under 10 seconds.
+  - Deps: T15.1
+  - [ ] S15.7.1 Add unit tests for rollback logic  Est: 30m
+  - [ ] S15.7.2 Run linter and formatter  Est: 15m
 
-- [x] T8.2 Implement OpenAPI-to-MCP model converter  Owner: TBD  Est: 2h
-  - Acceptance: Given a parsed OpenAPI document, produces a list of `MCPTool` structs with:
-    - Tool name derived from operationId (snake_case). If no operationId, derive from method+path (e.g., `get_users_by_id`).
-    - Tool description from operation summary (fallback to description, fallback to "No description").
-    - Input schema combining path params, query params, and request body properties into a single flat JSON Schema object.
-    - Required array listing all required path params and required body fields.
-    - HTTP method and path template preserved for the HTTP client in generated code.
-    - Response content type (application/json preferred).
-  - Deps: T8.1, T2.2
+### Epic E16: Cloud Source Repositories Integration
 
-- [x] T8.3 Add unit tests for OpenAPI-to-MCP model converter  Owner: TBD  Est: 1h
-  - Acceptance: Tests cover:
-    - Operation with path params, query params, and request body
-    - Operation with no parameters
-    - Operation with no operationId (name derived from method+path)
-    - Nested object schemas flattened correctly
-    - Enum parameters preserved
-    - Multiple security schemes
-  - Deps: T8.2
+- [ ] T16.1 Implement Cloud Source Repositories provisioning  Owner: TBD  Est: 1h
+  - Create `internal/deploy/gcp/sourcerepo.go`.
+  - Use `cloud.google.com/go/sourcerepo/apiv1` to create a repository named `mint-mcp-<service-name>`.
+  - Idempotent: skip if repository already exists.
+  - Acceptance: Repository created in GCP project. URL returned.
+  - Deps: T13.3
+  - [ ] S16.1.1 Add unit tests with mock Source Repository client  Est: 30m
+  - [ ] S16.1.2 Run linter and formatter  Est: 15m
 
-- [x] T8.4 Implement JSON Schema derivation from OpenAPI schemas  Owner: TBD  Est: 1.5h
-  - Acceptance: Converts OpenAPI Schema Object to JSON Schema suitable for MCP tool inputSchema. Handles: string, integer, number, boolean, array, object types. Preserves descriptions, enums, defaults, format hints. Resolves `$ref` to inline schemas.
-  - Deps: T8.1, T2.2
+- [ ] T16.2 Implement source code push to Cloud Source Repositories  Owner: TBD  Est: 1.5h
+  - After successful deployment, push the generated server source code to the Cloud Source Repository.
+  - Use `go-git` library or shell out to `git` to initialize a local repo (if not already), add files, commit, and push.
+  - Remote URL: `https://source.developers.google.com/p/<project>/r/mint-mcp-<service-name>`.
+  - Use Application Default Credentials for git authentication via credential helper.
+  - Acceptance: Source code available in Cloud Source Repository after deploy. Commit message includes spec hash and deploy timestamp.
+  - Deps: T16.1, T15.1
+  - [ ] S16.2.1 Add unit tests for git operations (mock)  Est: 30m
+  - [ ] S16.2.2 Run linter and formatter  Est: 15m
 
-- [x] T8.5 Add unit tests for JSON Schema derivation  Owner: TBD  Est: 1h
-  - Acceptance: Tests cover all primitive types, arrays of objects, nested objects, `$ref` resolution, enum values.
-  - Deps: T8.4
+### Epic E17: Canary Deployments and Traffic Management
 
-- [x] T8.6 Run linter and formatter on E8 code  Owner: TBD  Est: 15m
-  - Deps: T8.1 through T8.5
+- [ ] T17.1 Implement canary deployment with traffic splitting  Owner: TBD  Est: 1.5h
+  - When `--canary N` flag is provided (N is percentage 1-99), deploy the new revision but route only N% of traffic to it.
+  - Remaining traffic stays on the current revision.
+  - Print instructions for promoting or rolling back.
+  - `mint deploy gcp --promote --project P --region R --service S` shifts 100% traffic to the canary revision.
+  - Acceptance: `--canary 10` routes 10% traffic to new revision. `--promote` shifts to 100%.
+  - Deps: T15.1
+  - [ ] S17.1.1 Add unit tests for traffic splitting logic  Est: 30m
+  - [ ] S17.1.2 Run linter and formatter  Est: 15m
 
-### Epic E9: MCP Server Generation -- Go Output
+- [ ] T17.2 Implement `mint deploy status` command  Owner: TBD  Est: 1h
+  - Show current Cloud Run service status: revisions, traffic split, URL, last deploy time, labels.
+  - Support `--format json` for machine-readable output.
+  - Acceptance: `mint deploy status --project P --region R --service S` prints current state. JSON output is valid.
+  - Deps: T15.1
+  - [ ] S17.2.1 Add unit tests for status output formatting  Est: 30m
+  - [ ] S17.2.2 Run linter and formatter  Est: 15m
 
-Generates a complete, deployable Go MCP server project from the MCP model.
+### Epic E18: AI-Native Release Pipeline
 
-- [x] T9.1 Design Go MCP server template structure  Owner: TBD  Est: 1h
-  - Acceptance: Document (in code comments or a design doc) describing:
-    - Generated file layout: `main.go`, `server.go`, `tools.go`, `client.go`, `types.go`, `go.mod`
-    - `main.go`: parses flags (--transport stdio|sse, --port, --api-key), starts server
-    - `server.go`: registers all tools, sets up MCP server using `github.com/mark3labs/mcp-go` SDK
-    - `tools.go`: one function per tool that makes the HTTP call and returns the result
-    - `client.go`: shared HTTP client with auth header injection
-    - `types.go`: request/response structs for each operation
-    - `go.mod`: module declaration with mcp-go dependency
+Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
 
-- [x] T9.2 Create Go MCP server templates using `text/template`  Owner: TBD  Est: 3h
-  - Acceptance: Template files in `templates/mcp-go/` embedded via `embed.FS`:
-    - `main.go.tmpl`: CLI entry point with transport selection
-    - `server.go.tmpl`: MCP server setup, tool registration loop
-    - `tools.go.tmpl`: tool handler functions (HTTP request construction, execution, response parsing)
-    - `client.go.tmpl`: HTTP client with configurable base URL and auth
-    - `types.go.tmpl`: Go structs for request/response bodies
-    - `go.mod.tmpl`: module file
-    - `README.md.tmpl`: usage instructions for the generated server
-  - Each template must produce valid, `gofmt`-clean Go code.
-  - Deps: T9.1
+- [ ] T18.1 Create GitHub Actions deploy workflow template  Owner: TBD  Est: 1.5h
+  - Create `templates/workflows/deploy-gcp.yml.tmpl` (embedded template).
+  - Workflow triggers on push to main branch when spec file or server source changes.
+  - Steps: checkout, setup Go, install mint, generate MCP server (if spec changed), deploy to Cloud Run.
+  - Uses Workload Identity Federation for keyless GCP authentication from GitHub Actions.
+  - `mint deploy gcp` command generates this workflow when `--ci` flag is passed.
+  - Acceptance: Generated workflow file is valid GitHub Actions YAML. Workflow deploys successfully when triggered.
+  - Deps: T15.1, T13.2
+  - [ ] S18.1.1 Add unit test for workflow template rendering  Est: 30m
+  - [ ] S18.1.2 Run linter and formatter  Est: 15m
 
-- [x] T9.3 Implement Go code generation orchestrator  Owner: TBD  Est: 2h
-  - Acceptance: `internal/mcpgen/golang/generate.go` takes an `MCPServer` model and output directory path, executes all templates, writes files to output directory. Returns error if any template fails.
-  - Deps: T9.2, T8.2
+- [ ] T18.2 Implement Workload Identity Federation setup  Owner: TBD  Est: 1.5h
+  - Create `internal/deploy/gcp/workloadidentity.go`.
+  - When `--ci` flag is passed, provision:
+    - Workload Identity Pool for GitHub Actions.
+    - Workload Identity Provider linked to the GitHub repository.
+    - Service account with deploy permissions bound to the pool.
+  - Print the `workload_identity_provider` and `service_account` values for the GitHub Actions workflow.
+  - Idempotent: skip if pool/provider already exist.
+  - Acceptance: GitHub Actions workflow can authenticate to GCP without service account keys.
+  - Deps: T13.3
+  - [ ] S18.2.1 Add unit tests with mock IAM/STS clients  Est: 30m
+  - [ ] S18.2.2 Run linter and formatter  Est: 15m
 
-- [x] T9.4 Implement Go type mapping (OpenAPI types to Go types)  Owner: TBD  Est: 1.5h
-  - Acceptance: Maps OpenAPI types to Go types:
-    - string -> string
-    - integer -> int64
-    - number -> float64
-    - boolean -> bool
-    - array -> []T (recursive)
-    - object -> struct with exported fields
-    - string with format date-time -> time.Time
-    - string with format binary -> []byte
-    - nullable types -> pointer types
-  - Generates struct definitions with JSON tags.
-  - Deps: T8.1
+- [ ] T18.3 Implement deploy orchestrator (end-to-end flow)  Owner: TBD  Est: 2h
+  - Create `internal/deploy/gcp/deploy.go` as the top-level orchestrator.
+  - Orchestration sequence:
+    1. Validate DeployConfig.
+    2. Authenticate to GCP.
+    3. Provision Artifact Registry repository (T14.1).
+    4. Build container image via Cloud Build (T14.2).
+    5. Provision Cloud Run service (T15.1).
+    6. Apply IAM policy (T15.2).
+    7. Mount secrets (T15.3, if any).
+    8. Apply labels (T15.4).
+    9. Run health check (T15.6).
+    10. Push source to Cloud Source Repositories (T16.2, if enabled).
+    11. Print deploy summary (URL, revision, status).
+  - If any step fails, print clear error and exit. If health check fails, rollback.
+  - Progress output to stderr. Final URL to stdout (for piping).
+  - Acceptance: `mint deploy gcp --project P --region R --source ./server` executes all steps in order. Single command from source to live endpoint.
+  - Deps: T14.1, T14.2, T15.1, T15.2, T15.3, T15.4, T15.6, T16.2
+  - [ ] S18.3.1 Add integration test for full deploy flow (mock all GCP clients)  Est: 1h
+  - [ ] S18.3.2 Run linter and formatter  Est: 15m
 
-- [x] T9.5 Implement `mint mcp generate` command  Owner: TBD  Est: 1h
-  - Acceptance: `mint mcp generate spec.yaml --output ./myserver` produces a directory containing a compilable Go MCP server. `cd myserver && go build ./...` succeeds. No `--lang` flag needed since Go is the only target.
-  - Deps: T9.3, T1.3
+### Epic E19: Testing and Documentation
 
-- [x] T9.6 Add integration tests for Go MCP server generation  Owner: TBD  Est: 2h
-  - Acceptance: Tests that:
-    - Generated server from petstore spec compiles (`go build`)
-    - Generated server starts and responds to MCP initialize request via stdio
-    - Generated server lists all expected tools
-    - Generated tool input schemas match expected JSON Schema
-    - Generated server with auth config includes API key header in HTTP requests
-  - Deps: T9.3, T9.5
+- [ ] T19.1 Add integration tests for deploy command  Owner: TBD  Est: 2h
+  - Test the full deploy flow with mocked GCP SDK clients.
+  - Test error paths: missing credentials, build failure, health check failure, rollback.
+  - Test idempotency: deploy twice, verify no errors.
+  - Test canary: deploy with `--canary 10`, verify traffic split.
+  - Acceptance: All integration tests pass. 80%+ coverage on `internal/deploy/` package.
+  - Deps: T18.3
+  - [ ] S19.1.1 Run linter and formatter  Est: 15m
 
-- [x] T9.7 Run linter and formatter on E9 code  Owner: TBD  Est: 15m
-  - Deps: T9.2 through T9.5
+- [ ] T19.2 Add deploy command to CLI help text  Owner: TBD  Est: 30m
+  - Update `printUsage()` in main.go to include `deploy` command.
+  - Add `--help` text for `deploy gcp`, `deploy status`, `deploy rollback`.
+  - Acceptance: `mint help` lists deploy. `mint deploy --help` lists subcommands. All flags documented.
+  - Deps: T13.1
+  - [ ] S19.2.1 Run linter and formatter  Est: 15m
 
-### Epic E10: MCP Server Generation -- Advanced Features
+- [ ] T19.3 Write deploy documentation in README  Owner: TBD  Est: 1h
+  - Add deploy section to README covering:
+    - Prerequisites (GCP project, billing, gcloud CLI for auth).
+    - Quickstart: generate MCP server, deploy to Cloud Run.
+    - Security controls and SOC2 compliance.
+    - Canary deployments.
+    - CI/CD setup with GitHub Actions.
+    - Rollback procedure.
+  - Acceptance: README section is complete with examples. No missing steps.
+  - Deps: T18.3
+  - [ ] S19.3.1 Run linter and formatter  Est: 15m
 
-- [x] T10.1 Implement authentication passthrough configuration  Owner: TBD  Est: 1.5h
-  - Acceptance: Generated servers read API keys from environment variables. Supports three auth patterns:
-    - API key in header (`X-API-Key` from `MINT_API_KEY` env var)
-    - Bearer token (`Authorization: Bearer` from `MINT_TOKEN` env var)
-    - Custom header (configurable name and env var via `--auth-header` and `--auth-env` flags)
-  - Deps: T9.3
-
-- [x] T10.2 Implement HTTP/SSE transport support in generated Go servers  Owner: TBD  Est: 2h
-  - Acceptance: Generated Go server supports `--transport sse --port 8080` flag. Starts HTTP server with SSE endpoint at `/sse` and message endpoint at `/message`. Conforms to MCP HTTP/SSE transport spec.
-  - Deps: T9.3
-
-- [x] T10.3 Implement operation filtering for MCP generation  Owner: TBD  Est: 1h
-  - Acceptance: `mint mcp generate --include-tags users,posts` generates tools only for operations tagged with "users" or "posts". `--exclude-paths '/internal/*'` excludes matching paths.
-  - Deps: T8.2
-
-- [x] T10.4 Implement tool name customization via overlay or config  Owner: TBD  Est: 1h
-  - Acceptance: Users can provide a mapping file (`mint.yaml`) or overlay that renames tools. Example: map `listPets` to `search_pets`.
-  - Deps: T8.2, T6.2
-
-- [x] T10.5 Add Dockerfile template to generated servers  Owner: TBD  Est: 45m
-  - Acceptance: Generated Go server includes a multi-stage `Dockerfile` that builds and runs the server. `docker build -t myserver .` succeeds.
-  - Deps: T9.3
-
-- [x] T10.6 Add unit and integration tests for advanced MCP features  Owner: TBD  Est: 1.5h
-  - Acceptance: Tests cover auth injection, SSE transport startup, operation filtering, tool name customization.
-  - Deps: T10.1 through T10.5
-
-- [x] T10.7 Run linter and formatter on E10 code  Owner: TBD  Est: 15m
-  - Deps: T10.1 through T10.5
-
-### Epic E11: CI/CD Integration
-
-- [x] T11.1 Create GitHub Action for mint (validate + diff in PRs)  Owner: TBD  Est: 2h
-  - Acceptance: Action installs mint, runs lint, posts results as PR comment. Breaking changes fail the check.
-  - Deps: T3.2, T4.2
-- [x] T11.2 Write action.yml and composite action script  Owner: TBD  Est: 1h
-  - Acceptance: Valid action.yml with inputs for spec path, ruleset, fail-on-breaking.
-  - Deps: T11.1
-- [x] T11.3 Add GitHub Action for MCP server regeneration on spec change  Owner: TBD  Est: 1.5h
-  - Note: Provided example workflow rather than a separate regeneration action.
-  - Acceptance: Action detects spec changes in PR, regenerates MCP server, commits updated code. Configurable via action inputs.
-  - Deps: T9.5, T11.1
-- [x] T11.4 Add integration tests for GitHub Actions  Owner: TBD  Est: 1h
-  - Note: Actions tested via CI workflow and example workflow.
-  - Acceptance: Actions run successfully in test workflows.
-  - Deps: T11.1, T11.2, T11.3
-- [x] T11.5 Run linter and formatter on E11 code  Owner: TBD  Est: 15m
-  - Deps: T11.1, T11.2, T11.3
-
-### Epic E12: Documentation and Release
-
-- [x] T12.1 Write README with install instructions, quickstart, and command reference  Owner: TBD  Est: 1.5h
-  - Acceptance: README covers all commands with examples. Install via go install, homebrew tap, and binary download. Includes MCP server generation quickstart with Claude Desktop configuration example.
-- [x] T12.2 Add CLI help text for every command and flag  Owner: TBD  Est: 1h
-  - Acceptance: Every command and subcommand has a usage string. `mint help <cmd>` works for all.
-  - Deps: all command tasks
-- [x] T12.3 Create CONTRIBUTING.md and LICENSE (Apache 2.0)  Owner: TBD  Est: 30m
-- [x] T12.4 Create example specs and generated servers in `examples/` directory  Owner: TBD  Est: 1.5h
-  - Acceptance: At least 3 examples:
-    - Petstore spec with generated Go MCP server
-    - Multi-file merge example
-    - Overlay example
-  - Each example includes a README explaining what it demonstrates.
-- [x] T12.5 Write MCP server usage guide (connecting to Claude Desktop, Cursor, etc.)  Owner: TBD  Est: 1h
-  - Note: Included in README quickstart section.
-  - Acceptance: Step-by-step guide: generate server, build, configure in Claude Desktop `claude_desktop_config.json`, test with a prompt.
-- [x] T12.6 Set up homebrew tap for installation  Owner: TBD  Est: 1h
-  - Note: Configured in .goreleaser.yml to publish to sirerun/homebrew-tap on release.
-  - Acceptance: `brew install sirerun/tap/<chosen-name>` works on macOS.
-  - Deps: T1.7
-- [x] T12.7 Run final linter and formatter pass on entire codebase  Owner: TBD  Est: 30m
-  - Deps: all implementation tasks
+- [ ] T19.4 Run final linter and formatter pass on all deploy code  Owner: TBD  Est: 30m
+  - `golangci-lint run ./internal/deploy/...`
+  - `golangci-lint run ./cmd/mint/...`
+  - `gofmt -s -w .`
+  - Acceptance: Zero lint findings. Zero formatting changes.
+  - Deps: all E13-E18 tasks
 
 ### Archived
 
-- **E8-v1 (Code Sample Generation)** -- Archived. Reason: Code samples are now embedded within generated MCP server tool handlers rather than being a standalone feature.
-- **E9-v1 (SDK Scaffolding)** -- Archived. Reason: Replaced by MCP server generation. Generic SDK scaffolding is out of scope for v1.
-- **E10-v2 (TypeScript MCP Server Generation)** -- Archived. Reason: Go is sufficient for v1. TypeScript output may be added in a future version. Reduces scope and eliminates the `@modelcontextprotocol/sdk` dependency from the project.
+- **E1 through E12 (v0.1.0)** -- Completed. All tasks trimmed. Stable knowledge preserved in docs/design.md.
+
+---
+
+## Parallel Work
+
+### Track A: CLI and Config (E13)
+
+Tasks: T13.1, T13.2, T13.3
+
+### Track B: Container Build (E14)
+
+Tasks: T14.1, T14.2, T14.3
+
+### Track C: Cloud Run + Security (E15)
+
+Tasks: T15.1, T15.2, T15.3, T15.4, T15.5, T15.6, T15.7
+
+### Track D: Source Repository (E16)
+
+Tasks: T16.1, T16.2
+
+### Parallel Execution
+
+| Phase | Track A | Track B | Track C | Track D |
+|-------|---------|---------|---------|---------|
+| Phase 1 | T13.1, T13.2 | T14.3 | T15.5 | -- |
+| Phase 2 | T13.3 | -- | -- | -- |
+| Phase 3 | -- | T14.1 | -- | T16.1 |
+| Phase 4 | -- | T14.2 | T15.1 | T16.2 |
+| Phase 5 | -- | -- | T15.2, T15.3, T15.4 | -- |
+| Phase 6 | -- | -- | T15.6, T15.7 | -- |
+
+**Sync points:**
+- T13.3 (auth) must complete before T14.1, T15.1, T16.1 can start.
+- T14.2 (build) must complete before T15.1 (Cloud Run deploy) can start.
+- T15.1 must complete before T15.2, T15.3, T15.4, T15.6, T15.7.
+- T14.3 and T15.5 have no dependencies and can run in Phase 1 alongside Track A.
+- E17 (canary) and E18 (pipeline) depend on E15 completion.
+- E19 (testing/docs) runs last after all implementation is complete.
 
 ---
 
@@ -443,28 +414,11 @@ Generates a complete, deployable Go MCP server project from the MCP model.
 
 | Milestone | ID | Dependencies | Exit Criteria |
 |-----------|----|--------------|---------------|
-| M1: Foundation | E1, E2 | None | CLI compiles, loads specs, CI green |
-| M2: Core OpenAPI Tools | E3, E4, E5, E6, E7 | M1 | Lint, diff, merge, overlay, transform commands work with JSON output |
-| M3: MCP Generation | E8, E9 | M1 | `mint mcp generate petstore.yaml` produces a working Go MCP server |
-| M4: MCP Advanced + CI/CD | E10, E11 | M3, M2 | Auth, SSE, filtering complete. GitHub Actions work |
-| M5: Ship It | E12 | M2, M3, M4 | README complete, examples published, v0.1.0 released |
-
-### Dependency Graph
-
-```
-E1 (Bootstrap) --> E2 (Parsing)
-E2 --> E3 (Linting)
-E2 --> E4 (Diffing)
-E2 --> E5 (Merging)
-E2 --> E6 (Overlay)
-E2 --> E7 (Transform)
-E2 --> E8 (MCP Core Engine)
-E8 --> E9 (MCP Go Output)
-E9 --> E10 (MCP Advanced Features)
-E3, E4 --> E11 (CI/CD)
-E9 --> E11 (CI/CD -- MCP regeneration action)
-All --> E12 (Docs and Release)
-```
+| M6: Deploy Foundation | E13, E14 | None | `mint deploy gcp --help` works. Container image builds via Cloud Build. Distroless Dockerfile template updated. |
+| M7: Cloud Run Live | E15 | M6 | MCP server deployed to Cloud Run with SOC2 controls. Health check passes. Rollback works. |
+| M8: Source + Canary | E16, E17 | M7 | Source code in Cloud Source Repos. Canary deployments with traffic splitting. Status command works. |
+| M9: AI-Native Pipeline | E18 | M7 | GitHub Actions workflow deploys on push. Workload Identity Federation configured. End-to-end orchestrator tested. |
+| M10: Ship Deploy | E19 | M7, M8, M9 | Integration tests pass. README updated. CLI help complete. v0.2.0 released. |
 
 ---
 
@@ -472,14 +426,13 @@ All --> E12 (Docs and Release)
 
 | ID | Risk | Impact | Likelihood | Mitigation |
 |----|------|--------|------------|------------|
-| R1 | `pb33f/libopenapi` API changes break parsing | High | Low | Pin dependency version. Wrap in internal adapter. |
-| R2 | Subcommand dispatch with `flag` package becomes unwieldy | Medium | Medium | Keep command count small. Use a simple registry pattern. If truly painful, consider migrating to cobra later. |
-| R3 | MCP specification changes before v1.0 stable | High | Medium | Target latest stable spec version. Isolate MCP protocol details behind interfaces so updates are localized. |
-| R4 | Generated MCP server code quality insufficient for production use | High | Medium | Focus on petstore spec first. Generate clean, readable code. Include error handling and logging. Get early feedback from Claude Desktop users. |
-| R5 | `mcp-go` SDK introduces breaking changes | Medium | Medium | Pin SDK version in generated go.mod. Test against specific SDK version. |
-| R6 | Complex OpenAPI specs (oneOf, anyOf, discriminators) produce broken MCP tools | High | High | Start with simple specs. Document supported schema features. Degrade gracefully for unsupported patterns (emit warning, use generic JSON type). |
-| R7 | Overlay specification is not widely adopted | Low | Medium | Implement anyway -- it is a simple feature and useful for MCP tool customization. |
-| R8 | Go code templates become hard to maintain | Medium | Medium | Use `text/template` with clean data models. Keep templates in embedded files. Comprehensive golden-file tests. |
+| R9 | GCP Go SDK API breaking changes | Medium | Low | Pin SDK versions in go.mod. Wrap SDK calls in internal adapters. |
+| R10 | Cloud Build quotas throttle high-frequency deploys | Medium | Medium | Use regional Cloud Build. Document quota increase request process. Consider pre-built images for unchanged code. |
+| R11 | SSE connections dropped by Cloud Run default timeout | High | High | Set request timeout to 3600s for SSE transport. Document `--cpu-always` flag for persistent connections. |
+| R12 | Users lack GCP project setup knowledge | Medium | High | Provide clear prerequisites in README. Print actionable error messages for common setup issues (billing not enabled, APIs not enabled). |
+| R13 | Workload Identity Federation setup complexity | Medium | Medium | Automate setup via `--ci` flag. Print step-by-step instructions if manual setup is needed. |
+| R14 | Distroless containers limit debugging | Low | Medium | Provide `--debug-image` flag for non-production deployments that uses alpine base with shell. |
+| R15 | Cloud Source Repositories being deprecated | Medium | Low | Make source repo push optional (enabled by default, disabled with `--no-source-repo`). Source code is always available locally. |
 
 ---
 
@@ -494,7 +447,8 @@ A task is done when:
 4. `golangci-lint run` passes with no new findings.
 5. `gofmt -s` produces no changes.
 6. CLI help text is accurate for any new/changed commands.
-7. For MCP generation tasks: generated server code compiles and starts.
+7. GCP SDK calls are wrapped with clear error messages for common failure modes.
+8. Security controls are verified (IAM, secrets, non-root, TLS).
 
 ### Review and QA Steps
 
@@ -502,8 +456,8 @@ A task is done when:
 2. Run `go test ./...` and verify no regressions.
 3. Run `golangci-lint run` and fix any findings.
 4. Run `gofmt -s -w .` to ensure formatting.
-5. Test the affected CLI command manually with at least one real OpenAPI spec.
-6. For MCP generation changes: generate a server from petstore spec, build it, and verify it starts and lists tools.
+5. For deploy tasks: verify with a real GCP project that the deployment succeeds (or verify mocks cover all API calls).
+6. For security tasks: verify the deployed service configuration matches SOC2 requirements.
 
 ### Commit Policy
 
@@ -517,43 +471,21 @@ A task is done when:
 
 ## Progress Log
 
-### 2026-03-05 -- Change Summary (Update 3)
+### 2026-03-07 -- Change Summary (Plan Created)
 
-- Removed Epic E10-v2 (TypeScript MCP Server Generation). Moved to Archived. Go is the only MCP output target for v1.
-- Removed deliverable D7 (TypeScript MCP server generator). Renumbered D8-D10 to D7-D9.
-- Removed `@modelcontextprotocol/sdk` from dependencies.
-- Removed `templates/mcp-ts/` from directory structure (T1.2).
-- Simplified T9.5: removed `--lang` flag since Go is the only target.
-- Renumbered old E11 (Advanced Features) to E10, old E12 (CI/CD) to E11, old E13 (Docs) to E12.
-- Updated T10.1 (auth): removed dependency on T10.3 (TypeScript orchestrator, no longer exists).
-- Updated milestones: M4 no longer includes TypeScript generation.
-- Added five project name candidates aligned with Sire Run brand identity.
-- Updated Non-Goals to explicitly list TypeScript MCP server generation.
-- Total: 12 epics, 58 tasks.
+- Trimmed completed epics E1 through E12 (v0.1.0). Stable knowledge preserved in docs/design.md.
+- Created new plan for `mint deploy` command targeting Google Cloud Platform.
+- Added 7 new epics: E13 (Deploy Foundation), E14 (Container Build), E15 (Cloud Run + SOC2), E16 (Source Repos), E17 (Canary), E18 (AI Pipeline), E19 (Testing/Docs).
+- Total: 22 tasks, 44 subtasks.
+- Created 4 ADRs:
+  - docs/adr/001-gcp-cloud-run-deployment-target.md -- Cloud Run as initial deploy target.
+  - docs/adr/002-go-sdk-over-terraform-for-provisioning.md -- Go SDK over Terraform.
+  - docs/adr/003-ai-native-release-pipeline.md -- AI-native release pipeline design.
+  - docs/adr/004-soc2-security-controls-for-cloud-run.md -- SOC2 security controls.
+- 5 milestones defined: M6 through M10.
+- 7 risks identified: R9 through R15.
 
-### 2026-03-05 -- Change Summary (Update 2)
-
-- Restructured entire plan around MCP server generation as the primary goal.
-- Replaced E8 (Code Sample Generation) and E9 (SDK Scaffolding) with new epics:
-  - E8: MCP Server Generation -- Core Engine (OpenAPI-to-MCP mapping)
-  - E9: MCP Server Generation -- Go Output
-  - E10: MCP Server Generation -- TypeScript Output
-  - E11: MCP Server Generation -- Advanced Features (auth, SSE, filtering)
-- Moved old E8 and E9 to Archived section with reasons.
-- Added new deliverables D6 (Go MCP server generator) and D7 (TypeScript MCP server generator).
-- Updated milestones: M3 is now MCP Go generation, M4 is MCP TypeScript + advanced features.
-- Added risks R3 through R6 for MCP-specific concerns.
-- Updated context to position MCP server generation as the primary objective.
-
-### 2026-03-05 -- Change Summary (Update 1)
-
-- Initial plan created with all epics E1 through E11.
-- Defined project name: **Mint** (`github.com/sirerun/mint`).
-- Identified 11 epics, 56 tasks covering bootstrap through release.
-- Established dependency graph and 5 milestones.
-- Documented 6 risks with mitigations.
-
-### 2026-03-05 -- Plan Created
+### 2026-03-07 -- Plan Created
 
 - No implementation progress yet. Plan is new.
 
@@ -563,85 +495,87 @@ A task is done when:
 
 ### What You Need to Know
 
-1. **Project**: An open-source Go CLI whose primary purpose is generating Go MCP servers from OpenAPI specs. Also provides OpenAPI tooling (lint, diff, merge, transform, overlay). Inspired by but not derived from the Speakeasy CLI. No Speakeasy proprietary code is used.
-2. **Repo**: `github.com/sirerun/<chosen-name>`. Not yet created. See "Project Name Candidates" section at top of plan.
-3. **Key Dependencies**:
-   - `pb33f/libopenapi` -- OpenAPI parsing
-   - `pb33f/vacuum` -- linting
-   - `pb33f/openapi-changes` -- diffing
-   - `mark3labs/mcp-go` -- Go MCP SDK (used in generated Go servers, not a build dependency of mint itself)
-4. **CLI Framework**: Standard `flag` package with manual subcommand dispatch. No cobra.
-5. **Build**: goreleaser for cross-platform releases. GitHub Actions for CI.
-6. **MCP Generation**: Uses Go `text/template` with embedded template files. Templates live in `templates/mcp-go/`. The core mapping logic lives in `internal/mcpgen/`.
-7. **Testing**: `go test` with standard library. No testify. Test data in `testdata/` directories. Golden-file tests for template output.
-8. **Output language**: Go only. TypeScript was considered and explicitly deferred.
+1. **Context**: Mint is a Go CLI that generates MCP servers from OpenAPI specs. All generation features (E1-E12) are complete. This plan adds cloud deployment capabilities starting with GCP Cloud Run.
+2. **Previous work**: See docs/design.md for architecture, conventions, and completed milestones.
+3. **New dependencies**: GCP Go SDK packages (`cloud.google.com/go/run`, `cloud.google.com/go/artifactregistry`, `cloud.google.com/go/cloudbuild`, `cloud.google.com/go/secretmanager`, `cloud.google.com/go/sourcerepo`, `cloud.google.com/go/iam`).
+4. **Security**: SOC2 controls are enforced by default. Permissive options (`--public`, `--debug-image`) require explicit flags.
+5. **Testing**: Mock all GCP SDK clients for unit and integration tests. Real GCP project needed only for manual validation.
+6. **Key files**:
+   - `cmd/mint/deploy.go` -- CLI command and flag parsing.
+   - `internal/deploy/config.go` -- Deploy configuration model.
+   - `internal/deploy/gcp/` -- All GCP-specific provisioning and deployment logic.
+   - `internal/deploy/gcp/deploy.go` -- Top-level orchestrator.
 
 ### Credentials and Links (Placeholders)
 
-- GitHub org: `github.com/sirerun` -- requires admin access to create repo.
-- Homebrew tap: `github.com/sirerun/homebrew-tap` -- to be created.
-- No API keys or secrets required for core functionality.
+- GCP project for testing: TBD (create a dedicated test project).
+- GitHub org: `github.com/sirerun` -- existing.
+- Workload Identity Federation pool: created by `mint deploy gcp --ci`.
+- No API keys or secrets stored in repository.
 
 ---
 
 ## Appendix
 
-### How MCP Server Generation Works
+### Deploy Command Examples
 
-The generation pipeline has three stages:
-
-**Stage 1: Parse and Resolve**
-- Load OpenAPI spec via `pb33f/libopenapi`
-- Resolve all `$ref` references
-- Validate the spec (optional, enabled by default)
-
-**Stage 2: Map to MCP Model**
-- Each OpenAPI operation becomes one MCP tool
-- Tool name: operationId converted to snake_case (or derived from method+path)
-- Tool description: operation summary or description
-- Tool inputSchema: JSON Schema object combining path params, query params, and request body
-- Auth config: derived from OpenAPI securitySchemes
-
-**Stage 3: Generate Go Code**
-- Execute Go templates against the MCP model
-- Write generated files to output directory
-- Verify generated code compiles (optional, via `--verify` flag)
-
-### Example: Petstore to MCP Server
-
-Given a petstore OpenAPI spec with operations `listPets`, `createPet`, `showPetById`, mint generates:
-
-**MCP Tools:**
-- `list_pets` -- List all pets. Input: `{ limit?: number }`
-- `create_pet` -- Create a pet. Input: `{ name: string, tag?: string }`
-- `show_pet_by_id` -- Info for a specific pet. Input: `{ petId: string }`
-
-**Generated Go Server:**
+**Basic deploy:**
 ```
-myserver/
-  main.go          -- entry point, transport selection
-  server.go        -- MCP server setup, tool registration
-  tools.go         -- list_pets(), create_pet(), show_pet_by_id() handlers
-  client.go        -- HTTP client for petstore API
-  types.go         -- Pet, Error structs
-  go.mod           -- module with mcp-go dependency
-  Dockerfile       -- multi-stage build
-  README.md        -- usage instructions
+mint mcp generate petstore.yaml --output ./server
+mint deploy gcp --project my-project --region us-central1 --source ./server
 ```
 
-### UX Improvements Over Speakeasy
+**Deploy with secrets:**
+```
+mint deploy gcp --project my-project --source ./server \
+  --secret API_KEY=petstore-api-key \
+  --secret DB_PASSWORD=petstore-db-pass
+```
 
-1. **No platform lock-in**: Speakeasy requires authentication and communicates with `speakeasyapi.dev`. This tool works fully offline.
-2. **Simpler command structure**: Speakeasy has 30+ commands. This tool has a flat, predictable set: lint, diff, merge, overlay, transform, mcp.
-3. **Better error messages**: Errors reference spec file paths and line numbers, not internal platform state.
-4. **Machine-readable output**: Every command supports `--format json` for CI integration.
-5. **No upgrade nag or telemetry**: Does not phone home.
-6. **Predictable exit codes**: 0 success, 1 error, 2 breaking changes.
+**Canary deploy:**
+```
+mint deploy gcp --project my-project --source ./server --canary 10
+# After validation:
+mint deploy gcp --promote --project my-project --service petstore-mcp
+```
 
-### Key Architecture Decisions
+**Check status:**
+```
+mint deploy status --project my-project --service petstore-mcp
+mint deploy status --project my-project --service petstore-mcp --format json
+```
 
-1. **Single binary**: No plugins, no downloaded components. Everything ships in one binary.
-2. **Adapter pattern for OpenAPI libraries**: Wrap `pb33f/libopenapi` in an internal adapter so the rest of the codebase does not depend directly on it.
-3. **Template-based generation**: Use Go `text/template` with embedded template files in `templates/mcp-go/`.
-4. **No global state**: Each command receives its configuration via flags and arguments. No config files required (but supported via `mint.yaml` for project-level defaults like tool name overrides).
-5. **MCP model as intermediate representation**: The `internal/mcpgen/model.go` structs are the bridge between OpenAPI parsing and code generation. This decoupling allows adding new output languages later without modifying the parsing or mapping logic.
+**Rollback:**
+```
+mint deploy rollback --project my-project --service petstore-mcp
+```
+
+**Setup CI/CD:**
+```
+mint deploy gcp --project my-project --source ./server --ci
+# Generates .github/workflows/deploy-gcp.yml and provisions Workload Identity Federation
+```
+
+### GCP APIs Required
+
+The following GCP APIs must be enabled in the target project. `mint deploy gcp` will check and print instructions if any are missing:
+
+- Cloud Run Admin API (`run.googleapis.com`)
+- Cloud Build API (`cloudbuild.googleapis.com`)
+- Artifact Registry API (`artifactregistry.googleapis.com`)
+- Secret Manager API (`secretmanager.googleapis.com`)
+- Source Repo API (`sourcerepo.googleapis.com`)
+- IAM API (`iam.googleapis.com`)
+- Cloud Resource Manager API (`cloudresourcemanager.googleapis.com`)
+
+### SOC2 Control Mapping
+
+| SOC2 Criteria | Control | Implementation |
+|---------------|---------|----------------|
+| CC6.1 Logical access | IAM-based authentication | Cloud Run `--no-allow-unauthenticated` default |
+| CC6.1 Least privilege | Dedicated service account | Per-deployment SA with minimal roles |
+| CC6.6 Encryption in transit | TLS 1.2+ | Cloud Run built-in TLS termination |
+| CC6.7 Encryption at rest | Google-managed encryption | Artifact Registry and Secret Manager defaults |
+| CC7.1 Monitoring | Cloud Audit Logs | Enabled by default for Cloud Run admin operations |
+| CC7.2 Change management | Deployment labels | Commit SHA, spec hash, deployer, timestamp on every revision |
+| CC8.1 Change control | Immutable containers | Distroless base, no shell, non-root execution |
