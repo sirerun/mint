@@ -330,14 +330,14 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
 
 ### Epic E19: Testing and Documentation
 
-- [ ] T19.1 Add integration tests for deploy command  Owner: TBD  Est: 2h
+- [x] T19.1 Add integration tests for deploy command  Owner: TBD  Est: 2h  Completed: 2026-03-08
   - Test the full deploy flow with mocked GCP SDK clients.
   - Test error paths: missing credentials, build failure, health check failure, rollback.
   - Test idempotency: deploy twice, verify no errors.
   - Test canary: deploy with `--canary 10`, verify traffic split.
   - Acceptance: All integration tests pass. 80%+ coverage on `internal/deploy/` package.
   - Deps: T18.3
-  - [ ] S19.1.1 Run linter and formatter  Est: 15m
+  - [x] S19.1.1 Run linter and formatter  Est: 15m
 
 - [x] T19.2 Add deploy command to CLI help text  Owner: TBD  Est: 30m  Completed: 2026-03-08
   - Update `printUsage()` in main.go to include `deploy` command.
@@ -358,7 +358,7 @@ Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
   - Deps: T18.3
   - [x] S19.3.1 Run linter and formatter  Est: 15m
 
-- [ ] T19.4 Run final linter and formatter pass on all deploy code  Owner: TBD  Est: 30m
+- [x] T19.4 Run final linter and formatter pass on all deploy code  Owner: TBD  Est: 30m  Completed: 2026-03-08
   - `golangci-lint run ./internal/deploy/...`
   - `golangci-lint run ./cmd/mint/...`
   - `gofmt -s -w .`
