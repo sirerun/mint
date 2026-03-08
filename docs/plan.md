@@ -91,16 +91,16 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
 
 ### Epic E13: Deploy Command Foundation
 
-- [ ] T13.1 Add `deploy` subcommand dispatch to CLI  Owner: TBD  Est: 45m
+- [x] T13.1 Add `deploy` subcommand dispatch to CLI  Owner: TBD  Est: 45m  Completed: 2026-03-07
   - Add `case "deploy"` to main.go switch statement.
   - Create `cmd/mint/deploy.go` with subcommand dispatch for `gcp`, `status`, `rollback`.
   - Wire up `--help` flag.
   - Acceptance: `mint deploy --help` prints usage. `mint deploy gcp --help` prints GCP-specific flags.
   - Deps: none
-  - [ ] S13.1.1 Add unit tests for deploy CLI dispatch  Est: 30m
-  - [ ] S13.1.2 Run linter and formatter  Est: 15m
+  - [x] S13.1.1 Add unit tests for deploy CLI dispatch  Est: 30m
+  - [x] S13.1.2 Run linter and formatter  Est: 15m
 
-- [ ] T13.2 Define deploy configuration model  Owner: TBD  Est: 1h
+- [x] T13.2 Define deploy configuration model  Owner: TBD  Est: 1h  Completed: 2026-03-07
   - Create `internal/deploy/config.go` with structs:
     - `DeployConfig` (project ID, region, service name, source dir, image tag, auth settings, canary percentage, vpc, waf, internal, public flags)
     - `DeployResult` (service URL, revision name, status, error)
@@ -108,17 +108,17 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
   - Flags: `--project`, `--region` (default us-central1), `--service` (default from spec title), `--source` (path to generated server dir), `--public` (default false), `--canary` (percentage, default 0 meaning full rollout), `--vpc`, `--waf`, `--internal`, `--kms-key`, `--timeout` (Cloud Run request timeout, default 300s), `--max-instances` (default 10), `--min-instances` (default 0).
   - Acceptance: All flags parse correctly. Validation rejects missing required flags (project, source).
   - Deps: T13.1
-  - [ ] S13.2.1 Add unit tests for config parsing and validation  Est: 30m
-  - [ ] S13.2.2 Run linter and formatter  Est: 15m
+  - [x] S13.2.1 Add unit tests for config parsing and validation  Est: 30m
+  - [x] S13.2.2 Run linter and formatter  Est: 15m
 
-- [ ] T13.3 Implement GCP authentication helper  Owner: TBD  Est: 45m
+- [x] T13.3 Implement GCP authentication helper  Owner: TBD  Est: 45m  Completed: 2026-03-07
   - Create `internal/deploy/gcp/auth.go`.
   - Use `google.golang.org/api/option` and Application Default Credentials.
   - Detect if credentials are available. Print clear error message if not, instructing user to run `gcloud auth application-default login`.
   - Acceptance: Returns authenticated clients. Clear error on missing credentials.
   - Deps: T13.2
-  - [ ] S13.3.1 Add unit tests for auth helper (mock credentials)  Est: 30m
-  - [ ] S13.3.2 Run linter and formatter  Est: 15m
+  - [x] S13.3.1 Add unit tests for auth helper (mock credentials)  Est: 30m
+  - [x] S13.3.2 Run linter and formatter  Est: 15m
 
 ### Epic E14: Container Image Build and Registry
 
@@ -145,13 +145,13 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
   - [ ] S14.2.1 Add unit tests with mock Cloud Build client  Est: 45m
   - [ ] S14.2.2 Run linter and formatter  Est: 15m
 
-- [ ] T14.3 Implement distroless Dockerfile update  Owner: TBD  Est: 45m
+- [x] T14.3 Implement distroless Dockerfile update  Owner: TBD  Est: 45m  Completed: 2026-03-07
   - Update the Dockerfile template in `internal/mcpgen/golang/templates/Dockerfile.tmpl` to use `gcr.io/distroless/static-debian12` as the runtime base image.
   - Ensure the binary runs as non-root user (USER nonroot:nonroot).
   - Acceptance: Generated Dockerfile uses distroless base. Container has no shell. Process runs as non-root.
   - Deps: none
-  - [ ] S14.3.1 Add unit test verifying Dockerfile template output  Est: 30m
-  - [ ] S14.3.2 Run linter and formatter  Est: 15m
+  - [x] S14.3.1 Add unit test verifying Dockerfile template output  Est: 30m
+  - [x] S14.3.2 Run linter and formatter  Est: 15m
 
 ### Epic E15: Cloud Run Deployment with SOC2 Controls
 
@@ -208,14 +208,14 @@ Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr
   - [ ] S15.4.1 Add unit tests for label construction  Est: 15m
   - [ ] S15.4.2 Run linter and formatter  Est: 15m
 
-- [ ] T15.5 Add health endpoint to generated MCP servers  Owner: TBD  Est: 45m
+- [x] T15.5 Add health endpoint to generated MCP servers  Owner: TBD  Est: 45m  Completed: 2026-03-07
   - Add `/health` endpoint to the generated server's HTTP handler (in `server.go.tmpl`).
   - Returns 200 OK with `{"status": "ok"}` body.
   - Used by Cloud Run startup probe and by `mint deploy` health check.
   - Acceptance: Generated server responds to `GET /health` with 200. Existing MCP functionality unaffected.
   - Deps: none
-  - [ ] S15.5.1 Add unit test for health endpoint in generated server  Est: 30m
-  - [ ] S15.5.2 Run linter and formatter  Est: 15m
+  - [x] S15.5.1 Add unit test for health endpoint in generated server  Est: 30m
+  - [x] S15.5.2 Run linter and formatter  Est: 15m
 
 - [ ] T15.6 Implement post-deploy health check  Owner: TBD  Est: 1h
   - After Cloud Run deployment, send HTTP GET to `<service-url>/health`.
