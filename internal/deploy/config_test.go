@@ -204,6 +204,150 @@ func TestParseSecretFlag(t *testing.T) {
 	}
 }
 
+func TestDeployConfigValidateBoundary(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name    string
+		config  DeployConfig
+		wantErr string
+	}{
+		{
+			name: "canary zero is valid",
+			config: DeployConfig{
+				ProjectID:    "my-project",
+				SourceDir:    tmpDir,
+				Canary:       0,
+				Timeout:      300,
+				MaxInstances: 10,
+			},
+			wantErr: "",
+		},
+		{
+			name: "canary 99 is valid",
+			config: DeployConfig{
+				ProjectID:    "my-project",
+				SourceDir:    tmpDir,
+				Canary:       99,
+				Timeout:      300,
+				MaxInstances: 10,
+			},
+			wantErr: "",
+		},
+		{
+			name: "negative timeout",
+			config: DeployConfig{
+				ProjectID:    "my-project",
+				SourceDir:    tmpDir,
+				Timeout:      -5,
+				MaxInstances: 10,
+			},
+			wantErr: "timeout must be greater than 0",
+		},
+		{
+			name: "negative max instances",
+			config: DeployConfig{
+				ProjectID:    "my-project",
+				SourceDir:    tmpDir,
+				Timeout:      300,
+				MaxInstances: -1,
+			},
+			wantErr: "max-instances must be greater than 0",
+		},
+		{
+			name: "timeout of 1 is valid",
+			config: DeployConfig{
+				ProjectID:    "my-project",
+				SourceDir:    tmpDir,
+				Timeout:      1,
+				MaxInstances: 1,
+			},
+			wantErr: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Errorf("Validate() unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("Validate() expected error containing %q, got nil", tt.wantErr)
+			}
+			if got := err.Error(); !contains(got, tt.wantErr) {
+				t.Errorf("Validate() error = %q, want substring %q", got, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestParseSecretFlagEdgeCases(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantEnv    string
+		wantSecret string
+		wantErr    string
+	}{
+		{
+			name:       "multiple equals signs",
+			input:      "KEY=val=ue",
+			wantEnv:    "KEY",
+			wantSecret: "val=ue",
+		},
+		{
+			name:       "single character env var",
+			input:      "K=secret",
+			wantEnv:    "K",
+			wantSecret: "secret",
+		},
+		{
+			name:       "single character secret",
+			input:      "KEY=s",
+			wantEnv:    "KEY",
+			wantSecret: "s",
+		},
+		{
+			name:    "only equals sign",
+			input:   "=",
+			wantErr: "environment variable name is empty",
+		},
+		{
+			name:    "empty string",
+			input:   "",
+			wantErr: "expected format ENV_VAR=secret-name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseSecretFlag(tt.input)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("ParseSecretFlag(%q) expected error containing %q, got nil", tt.input, tt.wantErr)
+				}
+				if !contains(err.Error(), tt.wantErr) {
+					t.Errorf("ParseSecretFlag(%q) error = %q, want substring %q", tt.input, err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseSecretFlag(%q) unexpected error: %v", tt.input, err)
+			}
+			if got.EnvVar != tt.wantEnv {
+				t.Errorf("ParseSecretFlag(%q).EnvVar = %q, want %q", tt.input, got.EnvVar, tt.wantEnv)
+			}
+			if got.SecretName != tt.wantSecret {
+				t.Errorf("ParseSecretFlag(%q).SecretName = %q, want %q", tt.input, got.SecretName, tt.wantSecret)
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && searchString(s, substr)
 }
