@@ -60,7 +60,7 @@ Commands:
   merge       Merge multiple OpenAPI specs
   overlay     Apply OpenAPI Overlay documents
   transform   Transform specs (filter, cleanup, format)
-  deploy      Deploy MCP servers to cloud platforms
+  deploy      Deploy generated MCP servers
   version     Print the version
   help        Show this help message
 
