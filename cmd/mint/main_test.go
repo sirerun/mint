@@ -61,6 +61,9 @@ func TestRunSubcommands(t *testing.T) {
 		{name: "diff no args", args: []string{"diff"}, want: 1},
 		{name: "merge no args", args: []string{"merge"}, want: 1},
 		{name: "mcp generate no args", args: []string{"mcp", "generate"}, want: 1},
+		{name: "deploy help", args: []string{"deploy"}, want: 0},
+		{name: "deploy unknown", args: []string{"deploy", "notacommand"}, want: 1},
+		{name: "deploy gcp no source", args: []string{"deploy", "gcp", "--project", "test"}, want: 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

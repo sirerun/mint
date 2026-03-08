@@ -38,6 +38,8 @@ func run(args []string) int {
 		return runOverlay(args[1:])
 	case "transform":
 		return runTransform(args[1:])
+	case "deploy":
+		return runDeploy(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\nRun 'mint help' for usage.\n", args[0])
 		return 1
@@ -58,6 +60,7 @@ Commands:
   merge       Merge multiple OpenAPI specs
   overlay     Apply OpenAPI Overlay documents
   transform   Transform specs (filter, cleanup, format)
+  deploy      Deploy generated MCP servers
   version     Print the version
   help        Show this help message
 
