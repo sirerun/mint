@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { Server } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 
 export function SearchBar({ size = "lg" }: { size?: "sm" | "lg" }) {
   const [query, setQuery] = useState("");
@@ -47,7 +48,9 @@ export function SearchBar({ size = "lg" }: { size?: "sm" | "lg" }) {
 
   return (
     <div ref={ref} className="relative w-full">
-      <form action="/servers" method="get">
+      <form action="/servers" method="get" onSubmit={() => {
+        if (query.length >= 2) trackEvent({ event: "search", query });
+      }}>
         <input
           type="text"
           name="q"

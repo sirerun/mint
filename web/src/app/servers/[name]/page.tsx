@@ -1,4 +1,5 @@
 import { getServer } from "@/lib/api";
+import { DeployToSireCTA } from "@/components/DeployToSireCTA";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -135,12 +136,7 @@ export default async function ServerDetailPage({ params }: Props) {
           </div>
 
           {/* Deploy to Sire CTA */}
-          <a
-            href={`https://sire.run/deploy?mcp=${encodeURIComponent(server.name)}`}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-3 font-medium text-white hover:bg-[var(--color-accent-hover)] transition-colors"
-          >
-            Deploy to Sire
-          </a>
+          <DeployToSireCTA serverName={server.name} />
         </aside>
       </div>
     </div>

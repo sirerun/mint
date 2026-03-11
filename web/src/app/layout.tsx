@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen antialiased">
+        <AnalyticsTracker />
         <Header />
         <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {children}
@@ -75,7 +77,13 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-[var(--color-text-secondary)]">
-            Mint Registry by Sire Run, Inc.
+            Powered by{" "}
+            <a
+              href="https://sire.run?utm_source=mint-registry&utm_medium=footer&utm_campaign=powered-by"
+              className="text-[var(--color-accent)] hover:underline"
+            >
+              Sire
+            </a>
           </p>
           <div className="flex gap-6 text-sm text-[var(--color-text-secondary)]">
             <a href="https://sire.run" className="hover:text-[var(--color-text)] transition-colors">

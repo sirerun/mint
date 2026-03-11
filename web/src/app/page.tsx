@@ -2,6 +2,7 @@ import { listServers, CATEGORIES } from "@/lib/api";
 import { SearchBar } from "@/components/SearchBar";
 import { ServerCard } from "@/components/ServerCard";
 import { CategoryCard } from "@/components/CategoryCard";
+import { SireBanner } from "@/components/SireBanner";
 
 export default async function HomePage() {
   let featured;
@@ -67,6 +68,9 @@ export default async function HomePage() {
           </p>
         )}
       </section>
+
+      {/* Sire promotion banner */}
+      <SireBanner />
     </div>
   );
 }
