@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"testing"
 )
 
@@ -45,6 +46,38 @@ func TestRunVersion(t *testing.T) {
 func TestRunUnknownCommand(t *testing.T) {
 	if got := run([]string{"notacommand"}); got != 1 {
 		t.Errorf("run([notacommand]) = %d, want 1", got)
+	}
+}
+
+func TestRunNewCommands(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want int
+	}{
+		{name: "login no github", args: []string{"login"}, want: 1},
+		{name: "login help", args: []string{"login", "--help"}, want: 0},
+		{name: "publish help", args: []string{"publish", "--help"}, want: 0},
+		{name: "publish no manifest", args: []string{"publish", "--dry-run", "--dir", t.TempDir()}, want: 1},
+		{name: "install no args", args: []string{"install"}, want: 1},
+		{name: "install help", args: []string{"install", "--help"}, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := run(tt.args); got != tt.want {
+				t.Errorf("run(%v) = %d, want %d", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunPublishDryRun(t *testing.T) {
+	dir := t.TempDir()
+	manifest := `{"name":"test-server","version":"1.0.0","description":"A test"}`
+	os.WriteFile(dir+"/mint.json", []byte(manifest), 0o644)
+
+	if got := run([]string{"publish", "--dry-run", "--dir", dir}); got != 0 {
+		t.Errorf("publish --dry-run = %d, want 0", got)
 	}
 }
 
