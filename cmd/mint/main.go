@@ -40,6 +40,14 @@ func run(args []string) int {
 		return runTransform(args[1:])
 	case "deploy":
 		return runDeploy(args[1:])
+	case "login":
+		return runLogin(args[1:])
+	case "publish":
+		return runPublish(args[1:])
+	case "install":
+		return runInstall(args[1:])
+	case "seed":
+		return runSeed(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\nRun 'mint help' for usage.\n", args[0])
 		return 1
@@ -61,6 +69,10 @@ Commands:
   overlay     Apply OpenAPI Overlay documents
   transform   Transform specs (filter, cleanup, format)
   deploy      Deploy generated MCP servers
+  login       Authenticate with the Mint registry
+  publish     Publish an MCP server to the registry
+  install     Install an MCP server from the registry
+  seed        Batch-generate MCP servers from a catalog of OpenAPI specs
   version     Print the version
   help        Show this help message
 
