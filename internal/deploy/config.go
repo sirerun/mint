@@ -3,6 +3,7 @@ package deploy
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -67,6 +68,14 @@ func (c *DeployConfig) Validate() error {
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("source path %q is not a directory", c.SourceDir)
+	}
+	// Derive ServiceName from source dir name if not set.
+	if c.ServiceName == "" {
+		c.ServiceName = filepath.Base(c.SourceDir)
+	}
+	// Default image tag to "latest" if not set.
+	if c.ImageTag == "" {
+		c.ImageTag = "latest"
 	}
 	if c.Canary < 0 || c.Canary > 99 {
 		return fmt.Errorf("canary percentage must be between 0 and 99, got %d", c.Canary)
