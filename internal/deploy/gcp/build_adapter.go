@@ -56,6 +56,10 @@ func (a *CloudBuildAdapter) CreateBuild(ctx context.Context, projectID string, c
 	bucket := projectID + "_cloudbuild"
 	object := fmt.Sprintf("source/%d.tar.gz", time.Now().UnixNano())
 
+	if err := a.ensureBucket(ctx, bucket, projectID); err != nil {
+		return nil, fmt.Errorf("ensure build bucket: %w", err)
+	}
+
 	if err := a.uploadSource(ctx, bucket, object, config.SourceDir); err != nil {
 		return nil, fmt.Errorf("upload source: %w", err)
 	}
@@ -106,6 +110,17 @@ func (a *CloudBuildAdapter) CreateBuild(ctx context.Context, projectID string, c
 		Duration: duration,
 		Status:   b.Status.String(),
 	}, nil
+}
+
+// ensureBucket creates the Cloud Build source bucket if it does not exist.
+func (a *CloudBuildAdapter) ensureBucket(ctx context.Context, bucket, projectID string) error {
+	_, err := a.storage.Bucket(bucket).Attrs(ctx)
+	if err == storage.ErrBucketNotExist {
+		return a.storage.Bucket(bucket).Create(ctx, projectID, &storage.BucketAttrs{
+			Location: "us-central1",
+		})
+	}
+	return err
 }
 
 // uploadSource creates a tar.gz archive of srcDir and uploads it to GCS.
