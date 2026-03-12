@@ -57,6 +57,7 @@ func (b *cloudRunBridge) EnsureService(ctx context.Context, opts DeployServiceOp
 		MaxInstances: opts.MaxInstances,
 		MinInstances: opts.MinInstances,
 		EnvVars:      opts.EnvVars,
+		Args:         opts.Args,
 	})
 	if err != nil {
 		return nil, err

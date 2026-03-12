@@ -26,6 +26,7 @@ type ServiceConfig struct {
 	CPUAlways    bool              // allocate CPU even when idle (for SSE)
 	EnvVars      map[string]string // environment variables
 	Labels       map[string]string // service labels
+	Args         []string          // container command arguments
 }
 
 // Service represents a deployed Cloud Run service.

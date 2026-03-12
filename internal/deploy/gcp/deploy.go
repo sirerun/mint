@@ -44,6 +44,7 @@ type DeployServiceOptions struct {
 	Memory               string
 	CPU                  string
 	AllowUnauthenticated bool
+	Args                 []string
 }
 
 // ServiceDeployer deploys Cloud Run services.
@@ -152,6 +153,7 @@ func (d *Deployer) Deploy(ctx context.Context, input DeployInput) (*DeployOutput
 		Memory:               cfg.Memory,
 		CPU:                  cfg.CPU,
 		AllowUnauthenticated: cfg.Public,
+		Args:                 []string{"--transport", "sse"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cloud run: %w", err)

@@ -3,6 +3,7 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	run "cloud.google.com/go/run/apiv2"
 	"cloud.google.com/go/run/apiv2/runpb"
@@ -291,6 +292,7 @@ func serviceConfigToPb(config *ServiceConfig) *runpb.Service {
 				Image: config.ImageURI,
 				Ports: []*runpb.ContainerPort{{ContainerPort: port}},
 				Env:   envVars,
+				Args:  config.Args,
 			}},
 			Scaling: &runpb.RevisionScaling{
 				MinInstanceCount: int32(config.MinInstances),
@@ -327,7 +329,7 @@ func serviceStatusFromPb(svc *runpb.Service) *ServiceStatus {
 
 func revisionFromPb(rev *runpb.Revision) Revision {
 	r := Revision{
-		Name:   rev.Name,
+		Name:   shortRevisionName(rev.Name),
 		Active: isRevisionActive(rev.Conditions),
 	}
 	if rev.CreateTime != nil {
@@ -336,9 +338,18 @@ func revisionFromPb(rev *runpb.Revision) Revision {
 	return r
 }
 
+// shortRevisionName extracts the short revision name from a full resource path.
+// "projects/P/locations/L/services/S/revisions/R" becomes "R".
+func shortRevisionName(fullName string) string {
+	if i := strings.LastIndex(fullName, "/"); i >= 0 {
+		return fullName[i+1:]
+	}
+	return fullName
+}
+
 func revisionStatusFromPb(rev *runpb.Revision) RevisionStatus {
 	rs := RevisionStatus{
-		Name:   rev.Name,
+		Name:   shortRevisionName(rev.Name),
 		Active: isRevisionActive(rev.Conditions),
 	}
 	if rev.CreateTime != nil {
