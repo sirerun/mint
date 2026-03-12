@@ -26,6 +26,8 @@ internal/
   overlay/          OpenAPI Overlay application
   transform/        Spec transformation (filter, cleanup, format, Swagger 2.0 convert)
   color/            Terminal color utilities
+  deploy/           Deploy configuration model and validation
+  deploy/gcp/       GCP deployment orchestration (interfaces, business logic, adapters)
 templates/mcp-go/   Reference copies of Go templates
 examples/           Petstore, merge, overlay examples
 testdata/           Test OpenAPI specs
@@ -50,12 +52,24 @@ testdata/           Test OpenAPI specs
 - Write generated files to output directory
 - Generated files: main.go, server.go, tools.go, client.go, types.go, go.mod, Dockerfile, README.md
 
+### Deploy Architecture (Scaffolded)
+
+The deploy feature uses an interface-based architecture:
+
+- `internal/deploy/config.go` -- DeployConfig struct, validation, flag parsing. COMPLETE.
+- `internal/deploy/gcp/deploy.go` -- Deployer orchestrator with 8 pluggable interfaces. COMPLETE.
+- `internal/deploy/gcp/*.go` -- Interface definitions and business logic for each concern (registry, build, cloudrun, iam, secrets, sourcerepo, sourcepush, status, rollback, canary, healthcheck, workloadidentity, labels, workflow). COMPLETE.
+- `cmd/mint/deploy.go` -- CLI flag parsing and subcommand dispatch. STUBBED (prints "not yet implemented").
+
+**What is missing:** Concrete GCP SDK adapter implementations that satisfy the interfaces. The CLI entry point does not instantiate any GCP clients or call the orchestrator.
+
 ### Key Dependencies
 
 | Dependency | Purpose | Used In |
 |-----------|---------|---------|
 | pb33f/libopenapi | OpenAPI parsing | mint binary |
 | mark3labs/mcp-go | Go MCP SDK | Generated servers only |
+| cloud.google.com/go/artifactregistry | AR protobuf types | mint binary (type defs only) |
 
 ## Conventions
 
@@ -75,10 +89,13 @@ testdata/           Test OpenAPI specs
 |------|-------------|
 | cmd/mint/main.go | CLI entry point and subcommand dispatch |
 | cmd/mint/mcp.go | `mint mcp generate` command |
+| cmd/mint/deploy.go | Deploy CLI dispatch (gcp, status, rollback) |
 | internal/mcpgen/model.go | MCP model structs (MCPServer, MCPTool, MCPToolParam, MCPAuth) |
 | internal/mcpgen/converter.go | OpenAPI-to-MCP model converter |
 | internal/mcpgen/golang/generate.go | Go code generation orchestrator |
 | internal/mcpgen/golang/templates/ | Embedded Go templates (7 files) |
+| internal/deploy/config.go | DeployConfig, validation, SecretMapping |
+| internal/deploy/gcp/deploy.go | Deployer orchestrator (8 interface deps) |
 | .goreleaser.yml | Cross-platform release config |
 | action.yml | GitHub Action for lint/validate/diff in CI |
 
@@ -91,6 +108,7 @@ testdata/           Test OpenAPI specs
 | M3: MCP Generation | 2026-03 | `mint mcp generate` produces working Go MCP servers |
 | M4: MCP Advanced + CI/CD | 2026-03 | Auth, SSE, filtering, GitHub Actions |
 | M5: Ship It | 2026-03 | README, examples, v0.1.0 release |
+| M6-M10: Deploy Scaffold | 2026-03 | Interface design, business logic, mock tests for deploy feature |
 
 ## References
 

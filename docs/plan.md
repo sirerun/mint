@@ -1,51 +1,79 @@
-# Mint -- Cloud Deployment for MCP Servers
+# Mint Deploy -- Production-Ready GCP Deployment
 
 ## Context
 
-See docs/design.md for full project context, architecture, and conventions from completed v0.1.0 work.
+See docs/design.md for full project context, architecture, and conventions.
 
 ### Problem Statement
 
-Mint generates production-quality Go MCP servers from OpenAPI specs, but deploying these servers to production requires manual infrastructure setup -- provisioning container registries, configuring Cloud Run services, setting up IAM policies, managing secrets, and wiring CI/CD pipelines. This manual process is slow, error-prone, and incompatible with AI-native development workflows where features should be released at the speed of thought.
+The `mint deploy gcp`, `mint deploy status`, and `mint deploy rollback` commands are scaffolded but not functional. The codebase contains well-designed interfaces, orchestration logic, and comprehensive mock-based tests, but no concrete GCP SDK adapter implementations exist. The CLI entry point (`cmd/mint/deploy.go`) prints "not yet implemented" and exits.
 
-The `mint deploy` command will automate the full deployment lifecycle: build a container image, push it to a registry, provision cloud infrastructure, deploy the MCP server, verify health, and roll back on failure -- all in a single command with SOC2-compliant security defaults.
+This plan covers implementing the concrete GCP SDK adapters, wiring them into the CLI, and validating end-to-end functionality.
+
+### Current State
+
+The following are COMPLETE and tested (with mocks):
+- `internal/deploy/config.go` -- DeployConfig, validation, SecretMapping parsing.
+- `internal/deploy/gcp/deploy.go` -- Deployer orchestrator with 8 interface deps.
+- `internal/deploy/gcp/registry.go` -- EnsureRepository logic (uses AR protobuf types).
+- `internal/deploy/gcp/build.go` -- BuildImage logic (delegates to BuildClient interface).
+- `internal/deploy/gcp/cloudrun.go` -- EnsureService logic (delegates to CloudRunClient interface).
+- `internal/deploy/gcp/iam.go` -- ConfigureIAMPolicy logic (delegates to IAMPolicyClient interface).
+- `internal/deploy/gcp/secrets.go` -- EnsureSecrets logic (delegates to SecretClient interface).
+- `internal/deploy/gcp/sourcerepo.go` -- EnsureSourceRepo logic (delegates to SourceRepoClient interface).
+- `internal/deploy/gcp/sourcepush.go` -- PushSource logic (delegates to GitClient interface).
+- `internal/deploy/gcp/status.go` -- GetStatus and FormatStatus logic (delegates to StatusClient interface).
+- `internal/deploy/gcp/rollback.go` -- Rollback logic (delegates to RevisionClient interface).
+- `internal/deploy/gcp/canary.go` -- SetCanaryTraffic and PromoteCanary logic (delegates to TrafficClient interface).
+- `internal/deploy/gcp/healthcheck.go` -- HealthChecker with retries (real HTTP implementation).
+- `internal/deploy/gcp/labels.go` -- Label generation and sanitization.
+- `internal/deploy/gcp/workflow.go` -- GitHub Actions workflow generation.
+- `internal/deploy/gcp/workloadidentity.go` -- EnsureWorkloadIdentity logic (delegates to IAMClient interface).
+- `internal/deploy/gcp/auth.go` -- GCP Application Default Credentials.
+- `cmd/mint/deploy.go` -- Flag parsing and config construction (COMPLETE). Orchestration call (STUBBED).
+
+The following are NOT implemented:
+- Concrete GCP SDK adapter structs implementing the interfaces.
+- CLI wiring to instantiate adapters and call the Deployer.
+- GCP SDK dependencies in go.mod for Cloud Run, Cloud Build, Secret Manager, IAM, Source Repos.
+- GCP API enablement check.
+- Integration tests with real GCP calls (optional, not required for production readiness).
 
 ### Objectives
 
-1. Add a `mint deploy gcp` command that deploys a generated MCP server to Google Cloud Run with a single invocation.
-2. Enforce SOC2-compliant security controls by default (IAM auth, Secret Manager, audit logs, distroless containers, TLS 1.2+).
-3. Use the GCP Go SDK for all provisioning -- no Terraform, no gcloud CLI dependency. Decision rationale: docs/adr/002-go-sdk-over-terraform-for-provisioning.md.
-4. Host deployed MCP server source code in Google Cloud Source Repositories for convenience.
-5. Optimize the release pipeline for AI-native workflows with sub-minute deploys, automated health checks, and instant rollback. Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
-6. Provide a GitHub Actions workflow template for automated deploy-on-push.
+1. Implement concrete GCP SDK adapters for all 8 interface types.
+2. Wire `cmd/mint/deploy.go` to instantiate adapters and call the Deployer orchestrator.
+3. Wire `mint deploy status` to call GetStatus with a real StatusClient adapter.
+4. Wire `mint deploy rollback` to call Rollback with a real RevisionClient adapter.
+5. Add GCP API enablement check before deployment.
+6. Validate end-to-end with the petstore example against a real GCP project.
 
 ### Non-Goals
 
-- AWS or Azure deployment targets (future work, not in this scope).
-- Kubernetes (GKE) orchestration -- Cloud Run is the target, not GKE.
-- Custom domain configuration (users can do this via GCP console).
-- Multi-region deployment (single region for v1).
-- MCP server monitoring dashboards (Cloud Logging and Cloud Monitoring are used but no custom dashboards are provisioned).
-- Cost optimization features (reserved instances, committed use discounts).
+- Changing existing interface definitions or business logic.
+- Adding new deploy targets (AWS, Azure).
+- Custom domain or SSL management.
+- Monitoring dashboards.
 
 ### Constraints and Assumptions
 
-- Users must have a GCP project with billing enabled.
-- Users must have the `gcloud` CLI installed for initial authentication only (`gcloud auth application-default login`). Not used for provisioning.
-- The GCP Go SDK packages will be added as dependencies to the mint binary.
-- Cloud Run supports HTTP/SSE which maps to MCP HTTP/SSE transport.
-- Cloud Run request timeout must be extended (up to 3600s) for long-running SSE connections.
-- Generated MCP servers already include a Dockerfile template (from E10.5).
+- GCP Go SDK packages follow the `cloud.google.com/go/<service>/apiv2` convention.
+- Cloud Run Admin API v2 (`cloud.google.com/go/run/apiv2`) is the target SDK.
+- Cloud Build API (`cloud.google.com/go/cloudbuild/apiv1/v2`) for container builds.
+- Secret Manager API (`cloud.google.com/go/secretmanager/apiv1`) for secrets.
+- IAM Admin API (`cloud.google.com/go/iam/admin/apiv1`) for service accounts.
+- Source Repo API is deprecated; Cloud Source Repositories push should be optional and off by default.
+- Git operations use `os/exec` to shell out to `git` binary. Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
 
 ### Success Metrics
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| Deploy time (spec to live endpoint) | Under 90 seconds | Timed from `mint deploy gcp` invocation to health check pass |
-| Security controls enabled by default | 100% of SOC2-required controls | Audit of deployed Cloud Run service configuration |
-| Rollback time | Under 10 seconds | Timed from rollback command to traffic shift |
-| Idempotent deploys | Running deploy twice produces identical state | Automated test: deploy, deploy again, verify no drift |
-| AI agent deploy success rate | 95%+ | Deploy triggered by AI coding assistant succeeds without human intervention |
+| `mint deploy gcp` works end-to-end | Deploys petstore MCP server to Cloud Run | Manual test against real GCP project |
+| `mint deploy status` returns service info | Shows revisions, URL, traffic split | Manual test |
+| `mint deploy rollback` reverts traffic | Shifts traffic to previous revision | Manual test |
+| All existing tests pass | Zero regressions | `go test ./...` |
+| Build succeeds | `go build ./cmd/mint/` | CI |
 
 ---
 
@@ -53,360 +81,244 @@ The `mint deploy` command will automate the full deployment lifecycle: build a c
 
 ### In Scope
 
-1. **`mint deploy gcp` command** -- Single command to build, push, and deploy an MCP server to Cloud Run.
-2. **GCP resource provisioning via Go SDK** -- Artifact Registry repo, Cloud Run service, IAM policies, Secret Manager secrets, Cloud Source Repositories.
-3. **SOC2-compliant defaults** -- IAM auth, distroless containers, Secret Manager, audit logs, non-root execution, TLS 1.2+.
-4. **Health check verification** -- Post-deploy MCP initialize request to verify the server is functional.
-5. **Automated rollback** -- Revert to previous Cloud Run revision on health check failure.
-6. **Cloud Source Repositories integration** -- Push generated server source to a GCP-hosted git repository.
-7. **GitHub Actions workflow template** -- Automated deploy-on-push workflow.
-8. **Canary deployments** -- Optional traffic splitting for gradual rollout.
-9. **`mint deploy status`** -- Check deployment status and current revision.
-10. **`mint deploy rollback`** -- Manual rollback to a previous revision.
+1. **GCP SDK adapter implementations** -- One adapter file per GCP service.
+2. **CLI wiring** -- Replace "not yet implemented" stubs with real orchestration calls.
+3. **GCP API enablement check** -- Verify required APIs are enabled before deploying.
+4. **go.mod dependency additions** -- Add missing GCP SDK packages.
+5. **End-to-end validation** -- Manual test with real GCP project.
 
 ### Out of Scope
 
-- AWS, Azure, or other cloud provider deployment.
-- Kubernetes/GKE deployment.
-- Custom domain and SSL certificate management.
-- Multi-region or multi-cluster deployment.
-- Cost management and billing alerts.
-- Monitoring dashboards.
-- Deployment approval workflows (manual gates).
+- New features beyond what the interfaces already define.
+- Automated integration tests requiring GCP credentials in CI.
+- Changes to existing interface definitions.
+- AWS/Azure support.
 
 ### Deliverables Table
 
 | ID | Description | Owner | Acceptance Criteria |
 |----|-------------|-------|---------------------|
-| D10 | `mint deploy gcp` command | TBD | Deploys generated MCP server to Cloud Run, health check passes, SOC2 controls verified |
-| D11 | GCP provisioning library (`internal/deploy/gcp/`) | TBD | Provisions all required GCP resources idempotently via Go SDK |
-| D12 | Cloud Source Repositories integration | TBD | Pushes generated server code to GCP-hosted git repo |
-| D13 | GitHub Actions deploy workflow template | TBD | Workflow triggers on push, deploys to Cloud Run, rolls back on failure |
-| D14 | SOC2 security controls documentation | TBD | Documents all security controls, maps to SOC2 trust service criteria |
-| D15 | Canary deployment support | TBD | `--canary` flag splits traffic between old and new revisions |
+| D20 | GCP SDK adapter implementations | TBD | All 8 interfaces have concrete implementations using real GCP SDK clients |
+| D21 | CLI wiring for deploy, status, rollback | TBD | All three commands execute real GCP operations instead of printing "not yet implemented" |
+| D22 | GCP API enablement check | TBD | Clear error message listing missing APIs when required APIs are not enabled |
 
 ---
 
 ## Checkable Work Breakdown
 
-### Epic E13: Deploy Command Foundation
+### Epic E20: GCP SDK Adapter Implementations
 
-- [x] T13.1 Add `deploy` subcommand dispatch to CLI  Owner: TBD  Est: 45m  Completed: 2026-03-07
-  - Add `case "deploy"` to main.go switch statement.
-  - Create `cmd/mint/deploy.go` with subcommand dispatch for `gcp`, `status`, `rollback`.
-  - Wire up `--help` flag.
-  - Acceptance: `mint deploy --help` prints usage. `mint deploy gcp --help` prints GCP-specific flags.
+Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
+
+- [ ] T20.1 Add GCP SDK dependencies to go.mod  Owner: TBD  Est: 15m
+  - Run `go get` for:
+    - `cloud.google.com/go/run/apiv2`
+    - `cloud.google.com/go/cloudbuild/apiv1/v2`
+    - `cloud.google.com/go/secretmanager/apiv1`
+    - `cloud.google.com/go/iam/admin/apiv1`
+  - Run `go mod tidy`.
+  - Acceptance: `go build ./cmd/mint/` succeeds. No unused deps.
   - Deps: none
-  - [x] S13.1.1 Add unit tests for deploy CLI dispatch  Est: 30m
-  - [x] S13.1.2 Run linter and formatter  Est: 15m
 
-- [x] T13.2 Define deploy configuration model  Owner: TBD  Est: 1h  Completed: 2026-03-07
-  - Create `internal/deploy/config.go` with structs:
-    - `DeployConfig` (project ID, region, service name, source dir, image tag, auth settings, canary percentage, vpc, waf, internal, public flags)
-    - `DeployResult` (service URL, revision name, status, error)
-  - Parse flags into DeployConfig in `cmd/mint/deploy.go`.
-  - Flags: `--project`, `--region` (default us-central1), `--service` (default from spec title), `--source` (path to generated server dir), `--public` (default false), `--canary` (percentage, default 0 meaning full rollout), `--vpc`, `--waf`, `--internal`, `--kms-key`, `--timeout` (Cloud Run request timeout, default 300s), `--max-instances` (default 10), `--min-instances` (default 0).
-  - Acceptance: All flags parse correctly. Validation rejects missing required flags (project, source).
-  - Deps: T13.1
-  - [x] S13.2.1 Add unit tests for config parsing and validation  Est: 30m
-  - [x] S13.2.2 Run linter and formatter  Est: 15m
+- [ ] T20.2 Implement Artifact Registry adapter (`registry_adapter.go`)  Owner: TBD  Est: 45m
+  - Create `internal/deploy/gcp/registry_adapter.go`.
+  - Struct `ArtifactRegistryAdapter` wrapping `artifactregistry.Client`.
+  - Constructor `NewArtifactRegistryAdapter(ctx context.Context) (*ArtifactRegistryAdapter, error)` that creates a real SDK client.
+  - Implement `RegistryClient` interface methods: `GetRepository`, `CreateRepository`.
+  - Both methods delegate directly to the underlying SDK client, translating between the interface types and SDK types.
+  - Acceptance: Compiles. Satisfies `RegistryClient` interface (compile-time check via `var _ RegistryClient = (*ArtifactRegistryAdapter)(nil)`).
+  - Deps: T20.1
+  - [ ] S20.2.1 Add compile-time interface check and unit test  Est: 15m
+  - [ ] S20.2.2 Run linter and formatter  Est: 10m
 
-- [x] T13.3 Implement GCP authentication helper  Owner: TBD  Est: 45m  Completed: 2026-03-07
-  - Create `internal/deploy/gcp/auth.go`.
-  - Use `google.golang.org/api/option` and Application Default Credentials.
-  - Detect if credentials are available. Print clear error message if not, instructing user to run `gcloud auth application-default login`.
-  - Acceptance: Returns authenticated clients. Clear error on missing credentials.
-  - Deps: T13.2
-  - [x] S13.3.1 Add unit tests for auth helper (mock credentials)  Est: 30m
-  - [x] S13.3.2 Run linter and formatter  Est: 15m
+- [ ] T20.3 Implement Cloud Build adapter (`build_adapter.go`)  Owner: TBD  Est: 1h
+  - Create `internal/deploy/gcp/build_adapter.go`.
+  - Struct `CloudBuildAdapter` wrapping `cloudbuild.Client`.
+  - Implement `BuildClient` interface: `CreateBuild`.
+  - CreateBuild must:
+    1. Create a tar.gz of the source directory.
+    2. Upload the tarball to a Cloud Storage bucket (auto-created by Cloud Build).
+    3. Submit a build request with the Dockerfile.
+    4. Poll for completion using the returned long-running operation.
+    5. Return BuildResult with image URI, log URL, duration, status.
+  - Acceptance: Compiles. Satisfies `BuildClient` interface.
+  - Deps: T20.1
+  - [ ] S20.3.1 Add compile-time interface check and unit test  Est: 15m
+  - [ ] S20.3.2 Run linter and formatter  Est: 10m
 
-### Epic E14: Container Image Build and Registry
+- [ ] T20.4 Implement Cloud Run adapter (`cloudrun_adapter.go`)  Owner: TBD  Est: 1h
+  - Create `internal/deploy/gcp/cloudrun_adapter.go`.
+  - Struct `CloudRunAdapter` wrapping `run.ServicesClient`.
+  - Implement `CloudRunClient` interface: `GetService`, `CreateService`, `UpdateService`.
+  - Map between internal `ServiceConfig`/`Service` types and Cloud Run SDK protobuf types (`runpb.Service`, `runpb.RevisionTemplate`, etc.).
+  - GetService: return `ErrNotFound` when gRPC status is `codes.NotFound`.
+  - CreateService/UpdateService: wait for the long-running operation to complete, then extract the service URL and revision name from the result.
+  - Also implement `StatusClient` interface: `GetService` (returning `ServiceStatus`), `ListRevisions`.
+  - Also implement `RevisionClient` interface: `ListRevisions` (returning `[]Revision`), `UpdateTraffic`.
+  - Also implement `TrafficClient` interface: `GetTraffic`, `SetTraffic`.
+  - These can be on the same adapter struct since they all use the Cloud Run API.
+  - Acceptance: Compiles. Satisfies `CloudRunClient`, `StatusClient`, `RevisionClient`, and `TrafficClient` interfaces.
+  - Deps: T20.1
+  - [ ] S20.4.1 Add compile-time interface checks and unit test  Est: 20m
+  - [ ] S20.4.2 Run linter and formatter  Est: 10m
 
-- [x] T14.1 Implement Artifact Registry repository provisioning  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/registry.go`.
-  - Use `cloud.google.com/go/artifactregistry/apiv1` to create a Docker repository if it does not exist.
-  - Repository name: `mint-mcp-servers` in the specified project and region.
-  - Enable vulnerability scanning by default.
-  - Idempotent: skip creation if repository already exists.
-  - Acceptance: Repository created on first run, skipped on subsequent runs. Vulnerability scanning enabled.
-  - Deps: T13.3
-  - [x] S14.1.1 Add unit tests with mock Artifact Registry client  Est: 30m
-  - [x] S14.1.2 Run linter and formatter  Est: 15m
+- [ ] T20.5 Implement IAM adapter (`iam_adapter.go`)  Owner: TBD  Est: 45m
+  - Create `internal/deploy/gcp/iam_adapter.go`.
+  - Struct `IAMAdapter`.
+  - For `IAMPolicyClient` interface: use `run.ServicesClient.GetIamPolicy` and `SetIamPolicy` (IAM on Cloud Run services is accessed via the Run API, not a separate IAM API).
+  - Map between internal `IAMPolicy`/`IAMBinding` types and `iampb.Policy`/`iampb.Binding`.
+  - For `IAMClient` interface (used by workload identity): use `iam/admin/apiv1` to create/get service accounts.
+  - Acceptance: Compiles. Satisfies `IAMPolicyClient` and `IAMClient` interfaces.
+  - Deps: T20.1, T20.4 (shares Cloud Run client for IAM policy on services)
+  - [ ] S20.5.1 Add compile-time interface checks and unit test  Est: 15m
+  - [ ] S20.5.2 Run linter and formatter  Est: 10m
 
-- [x] T14.2 Implement Cloud Build image builder  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/build.go`.
-  - Use `cloud.google.com/go/cloudbuild/apiv1/v2` to submit a build.
-  - Upload source directory as a tarball to Cloud Storage (build source bucket).
-  - Build steps: multi-stage Dockerfile (already generated by mint). Build produces image tagged with git commit SHA and `latest`.
-  - Image pushed to Artifact Registry repository from T14.1.
-  - Wait for build completion. Stream build logs to stderr.
-  - Acceptance: Build completes in under 60 seconds for petstore server. Image available in Artifact Registry.
-  - Deps: T14.1
-  - [x] S14.2.1 Add unit tests with mock Cloud Build client  Est: 45m
-  - [x] S14.2.2 Run linter and formatter  Est: 15m
+- [ ] T20.6 Implement Secret Manager adapter (`secrets_adapter.go`)  Owner: TBD  Est: 45m
+  - Create `internal/deploy/gcp/secrets_adapter.go`.
+  - Struct `SecretManagerAdapter` wrapping `secretmanager.Client`.
+  - Implement `SecretClient` interface: `GetSecret`, `CreateSecret`.
+  - GetSecret: return `NotFoundErr` when gRPC status is `codes.NotFound`.
+  - CreateSecret: create with automatic replication policy.
+  - Acceptance: Compiles. Satisfies `SecretClient` interface.
+  - Deps: T20.1
+  - [ ] S20.6.1 Add compile-time interface check and unit test  Est: 15m
+  - [ ] S20.6.2 Run linter and formatter  Est: 10m
 
-- [x] T14.3 Implement distroless Dockerfile update  Owner: TBD  Est: 45m  Completed: 2026-03-07
-  - Update the Dockerfile template in `internal/mcpgen/golang/templates/Dockerfile.tmpl` to use `gcr.io/distroless/static-debian12` as the runtime base image.
-  - Ensure the binary runs as non-root user (USER nonroot:nonroot).
-  - Acceptance: Generated Dockerfile uses distroless base. Container has no shell. Process runs as non-root.
+- [ ] T20.7 Implement Source Repository adapter (`sourcerepo_adapter.go`)  Owner: TBD  Est: 30m
+  - Create `internal/deploy/gcp/sourcerepo_adapter.go`.
+  - Struct `SourceRepoAdapter`.
+  - Implement `SourceRepoClient` interface: `GetRepo`, `CreateRepo`.
+  - Note: Cloud Source Repositories API is being deprecated. This adapter is optional and used only when `--no-source-repo` is not set. Log a deprecation warning.
+  - Use `google.golang.org/api/sourcerepo/v1` (REST API) since there is no gRPC client library.
+  - Acceptance: Compiles. Satisfies `SourceRepoClient` interface.
+  - Deps: T20.1
+  - [ ] S20.7.1 Add compile-time interface check and unit test  Est: 15m
+  - [ ] S20.7.2 Run linter and formatter  Est: 10m
+
+- [ ] T20.8 Implement Git adapter (`git_adapter.go`)  Owner: TBD  Est: 30m
+  - Create `internal/deploy/gcp/git_adapter.go`.
+  - Struct `ExecGitClient` that shells out to the `git` binary via `os/exec`.
+  - Implement `GitClient` interface: `Init`, `AddAll`, `Commit`, `AddRemote`, `Push`, `HasRemote`.
+  - Each method runs `git <subcommand>` in the specified directory.
+  - Check that `git` is in PATH; return clear error if not found.
+  - Acceptance: Compiles. Satisfies `GitClient` interface. `git` commands execute correctly.
   - Deps: none
-  - [x] S14.3.1 Add unit test verifying Dockerfile template output  Est: 30m
-  - [x] S14.3.2 Run linter and formatter  Est: 15m
+  - [ ] S20.8.1 Add unit test (mock exec or test with temp dir)  Est: 15m
+  - [ ] S20.8.2 Run linter and formatter  Est: 10m
 
-### Epic E15: Cloud Run Deployment with SOC2 Controls
+### Epic E21: CLI Wiring
 
-Decision rationale: docs/adr/001-gcp-cloud-run-deployment-target.md and docs/adr/004-soc2-security-controls-for-cloud-run.md.
+- [ ] T21.1 Wire `runDeployGCP` to call the Deployer orchestrator  Owner: TBD  Est: 1.5h
+  - In `cmd/mint/deploy.go`, replace the "not yet implemented" stub in `runDeployGCP` with:
+    1. Call `gcp.Authenticate(ctx)` to get default credentials.
+    2. Instantiate all adapter structs (ArtifactRegistryAdapter, CloudBuildAdapter, CloudRunAdapter, IAMAdapter, SecretManagerAdapter, SourceRepoAdapter if enabled, ExecGitClient).
+    3. Create a `gcp.Deployer` with all adapters injected.
+    4. Construct `gcp.DeployInput` from the `deploy.DeployConfig`.
+    5. Call `deployer.Deploy(ctx, input)`.
+    6. Print the result (service URL to stdout, details to stderr).
+    7. Handle canary flow: if `--canary` > 0, call `gcp.SetCanaryTraffic` after deploy. If `--promote`, call `gcp.PromoteCanary`.
+    8. Handle `--ci` flow: call `gcp.EnsureWorkloadIdentity` and generate workflow file.
+  - Acceptance: `mint deploy gcp --project P --source ./server` executes the full deploy flow. Returns 0 on success.
+  - Deps: T20.2, T20.3, T20.4, T20.5, T20.6, T20.7, T20.8
+  - [ ] S21.1.1 Add unit test for CLI wiring (mock adapters via build tags or constructor injection)  Est: 30m
+  - [ ] S21.1.2 Run linter and formatter  Est: 10m
 
-- [x] T15.1 Implement Cloud Run service provisioning  Owner: TBD  Est: 2h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/cloudrun.go`.
-  - Use `cloud.google.com/go/run/apiv2` to create or update a Cloud Run service.
-  - Service configuration:
-    - Container image from Artifact Registry (from T14.2).
-    - Request timeout from `--timeout` flag.
-    - Max instances from `--max-instances` flag.
-    - Min instances from `--min-instances` flag.
-    - CPU allocation: CPU is only allocated during request processing (default). Use `--cpu-always` for SSE transport.
-    - Port: 8080 (default Cloud Run port).
-    - Startup probe: HTTP GET on `/health` (to be added to generated server).
-  - Idempotent: update existing service if it exists, create if not.
-  - Acceptance: Cloud Run service created with correct configuration. Service URL returned.
-  - Deps: T14.2, T13.2
-  - [x] S15.1.1 Add unit tests with mock Cloud Run client  Est: 45m
-  - [x] S15.1.2 Run linter and formatter  Est: 15m
+- [ ] T21.2 Wire `runDeployStatus` to call GetStatus  Owner: TBD  Est: 45m
+  - In `cmd/mint/deploy.go`, replace the "not yet implemented" stub in `runDeployStatus` with:
+    1. Parse `--project`, `--region`, `--service`, `--format` flags (already defined but not wired).
+    2. Authenticate with GCP.
+    3. Create `CloudRunAdapter` (which implements `StatusClient`).
+    4. Call `gcp.GetStatus(ctx, adapter, projectID, region, serviceName)`.
+    5. Format output with `gcp.FormatStatus(result, format == "json")`.
+    6. Print to stdout.
+  - Acceptance: `mint deploy status --project P --service S` prints service status. `--format json` outputs valid JSON.
+  - Deps: T20.4
+  - [ ] S21.2.1 Add unit test for status CLI path  Est: 15m
+  - [ ] S21.2.2 Run linter and formatter  Est: 10m
 
-- [x] T15.2 Implement IAM policy for Cloud Run service  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - In `internal/deploy/gcp/iam.go`.
-  - By default: no `allUsers` or `allAuthenticatedUsers` binding. Service requires IAM identity token to invoke.
-  - When `--public` flag is set: add `allUsers` with `roles/run.invoker`. Print warning to stderr.
-  - Create a dedicated service account `mint-mcp-<service-name>@<project>.iam.gserviceaccount.com` with only `roles/run.invoker` on itself.
-  - Acceptance: Default deployment requires IAM auth. `--public` flag allows unauthenticated access with warning.
-  - Deps: T15.1
-  - [x] S15.2.1 Add unit tests for IAM policy construction  Est: 30m
-  - [x] S15.2.2 Run linter and formatter  Est: 15m
+- [ ] T21.3 Wire `runDeployRollback` to call Rollback  Owner: TBD  Est: 45m
+  - In `cmd/mint/deploy.go`, replace the "not yet implemented" stub in `runDeployRollback` with:
+    1. Parse `--project`, `--region`, `--service` flags (already defined but not wired).
+    2. Authenticate with GCP.
+    3. Create `CloudRunAdapter` (which implements `RevisionClient`).
+    4. Call `gcp.Rollback(ctx, adapter, projectID, region, serviceName)`.
+    5. Print result: which revision traffic was shifted to.
+  - Acceptance: `mint deploy rollback --project P --service S` shifts traffic to previous revision. Returns 0 on success.
+  - Deps: T20.4
+  - [ ] S21.3.1 Add unit test for rollback CLI path  Est: 15m
+  - [ ] S21.3.2 Run linter and formatter  Est: 10m
 
-- [x] T15.3 Implement Secret Manager integration  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/secrets.go`.
-  - Use `cloud.google.com/go/secretmanager/apiv1`.
-  - `--secret` flag accepts `ENV_VAR=secret-name` pairs (repeatable).
-  - Create secrets in Secret Manager if they do not exist (user must set values via GCP console or gcloud).
-  - Mount secrets as environment variables in Cloud Run service.
-  - Grant the service account `roles/secretmanager.secretAccessor` on each secret.
-  - Acceptance: Secrets mounted as env vars. Service account has accessor role. Secrets never in container image.
-  - Deps: T15.1, T15.2
-  - [x] S15.3.1 Add unit tests for Secret Manager provisioning  Est: 30m
-  - [x] S15.3.2 Run linter and formatter  Est: 15m
+### Epic E22: GCP API Enablement Check
 
-- [x] T15.4 Implement deployment labels and audit metadata  Owner: TBD  Est: 30m  Completed: 2026-03-08
-  - Add labels to Cloud Run service:
-    - `mint-version`: mint CLI version.
-    - `spec-hash`: SHA256 of the source OpenAPI spec (first 12 chars).
-    - `commit-sha`: git commit SHA of the source directory (if available).
-    - `deployed-by`: username from `os/user.Current()`.
-    - `deployed-at`: UTC timestamp.
-  - Acceptance: Labels present on deployed Cloud Run service. Queryable via `gcloud run services describe`.
-  - Deps: T15.1
-  - [x] S15.4.1 Add unit tests for label construction  Est: 15m
-  - [x] S15.4.2 Run linter and formatter  Est: 15m
+- [ ] T22.1 Implement API enablement verification  Owner: TBD  Est: 45m
+  - Create `internal/deploy/gcp/apis.go`.
+  - Use `google.golang.org/api/serviceusage/v1` to check if required APIs are enabled.
+  - Required APIs: `run.googleapis.com`, `cloudbuild.googleapis.com`, `artifactregistry.googleapis.com`, `secretmanager.googleapis.com`, `iam.googleapis.com`.
+  - If any API is not enabled, print a clear error listing the missing APIs and the `gcloud services enable` command to enable them.
+  - Call this check at the start of `runDeployGCP` before instantiating adapters.
+  - Acceptance: Missing APIs produce actionable error message. Enabled APIs pass silently.
+  - Deps: T20.1
+  - [ ] S22.1.1 Add unit test with mock serviceusage client  Est: 20m
+  - [ ] S22.1.2 Run linter and formatter  Est: 10m
 
-- [x] T15.5 Add health endpoint to generated MCP servers  Owner: TBD  Est: 45m  Completed: 2026-03-07
-  - Add `/health` endpoint to the generated server's HTTP handler (in `server.go.tmpl`).
-  - Returns 200 OK with `{"status": "ok"}` body.
-  - Used by Cloud Run startup probe and by `mint deploy` health check.
-  - Acceptance: Generated server responds to `GET /health` with 200. Existing MCP functionality unaffected.
-  - Deps: none
-  - [x] S15.5.1 Add unit test for health endpoint in generated server  Est: 30m
-  - [x] S15.5.2 Run linter and formatter  Est: 15m
+### Epic E23: Validation and Cleanup
 
-- [x] T15.6 Implement post-deploy health check  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - After Cloud Run deployment, send HTTP GET to `<service-url>/health`.
-  - Retry up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s).
-  - If health check passes: print success message with service URL.
-  - If health check fails: trigger automatic rollback to previous revision (T15.7).
-  - For IAM-authenticated services, use the deployer's credentials to call the health endpoint.
-  - Acceptance: Healthy deployment prints URL. Unhealthy deployment triggers rollback.
-  - Deps: T15.1, T15.5
-  - [x] S15.6.1 Add unit tests for health check with mock HTTP  Est: 30m
-  - [x] S15.6.2 Run linter and formatter  Est: 15m
+- [ ] T23.1 Run full test suite and fix regressions  Owner: TBD  Est: 30m
+  - Run `go test ./...` and fix any failures.
+  - Acceptance: All tests pass. Zero regressions.
+  - Deps: T21.1, T21.2, T21.3, T22.1
 
-- [x] T15.7 Implement rollback to previous revision  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/rollback.go`.
-  - Implement `mint deploy rollback --project P --region R --service S` command.
-  - List Cloud Run revisions, shift 100% traffic to the previous revision.
-  - Also called automatically from T15.6 on health check failure.
-  - Acceptance: Traffic shifts to previous revision. Rollback completes in under 10 seconds.
-  - Deps: T15.1
-  - [x] S15.7.1 Add unit tests for rollback logic  Est: 30m
-  - [x] S15.7.2 Run linter and formatter  Est: 15m
-
-### Epic E16: Cloud Source Repositories Integration
-
-- [x] T16.1 Implement Cloud Source Repositories provisioning  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/sourcerepo.go`.
-  - Use `cloud.google.com/go/sourcerepo/apiv1` to create a repository named `mint-mcp-<service-name>`.
-  - Idempotent: skip if repository already exists.
-  - Acceptance: Repository created in GCP project. URL returned.
-  - Deps: T13.3
-  - [x] S16.1.1 Add unit tests with mock Source Repository client  Est: 30m
-  - [x] S16.1.2 Run linter and formatter  Est: 15m
-
-- [x] T16.2 Implement source code push to Cloud Source Repositories  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
-  - After successful deployment, push the generated server source code to the Cloud Source Repository.
-  - Use `go-git` library or shell out to `git` to initialize a local repo (if not already), add files, commit, and push.
-  - Remote URL: `https://source.developers.google.com/p/<project>/r/mint-mcp-<service-name>`.
-  - Use Application Default Credentials for git authentication via credential helper.
-  - Acceptance: Source code available in Cloud Source Repository after deploy. Commit message includes spec hash and deploy timestamp.
-  - Deps: T16.1, T15.1
-  - [x] S16.2.1 Add unit tests for git operations (mock)  Est: 30m
-  - [x] S16.2.2 Run linter and formatter  Est: 15m
-
-### Epic E17: Canary Deployments and Traffic Management
-
-- [x] T17.1 Implement canary deployment with traffic splitting  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
-  - When `--canary N` flag is provided (N is percentage 1-99), deploy the new revision but route only N% of traffic to it.
-  - Remaining traffic stays on the current revision.
-  - Print instructions for promoting or rolling back.
-  - `mint deploy gcp --promote --project P --region R --service S` shifts 100% traffic to the canary revision.
-  - Acceptance: `--canary 10` routes 10% traffic to new revision. `--promote` shifts to 100%.
-  - Deps: T15.1
-  - [x] S17.1.1 Add unit tests for traffic splitting logic  Est: 30m
-  - [x] S17.1.2 Run linter and formatter  Est: 15m
-
-- [x] T17.2 Implement `mint deploy status` command  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - Show current Cloud Run service status: revisions, traffic split, URL, last deploy time, labels.
-  - Support `--format json` for machine-readable output.
-  - Acceptance: `mint deploy status --project P --region R --service S` prints current state. JSON output is valid.
-  - Deps: T15.1
-  - [x] S17.2.1 Add unit tests for status output formatting  Est: 30m
-  - [x] S17.2.2 Run linter and formatter  Est: 15m
-
-### Epic E18: AI-Native Release Pipeline
-
-Decision rationale: docs/adr/003-ai-native-release-pipeline.md.
-
-- [x] T18.1 Create GitHub Actions deploy workflow template  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
-  - Create `templates/workflows/deploy-gcp.yml.tmpl` (embedded template).
-  - Workflow triggers on push to main branch when spec file or server source changes.
-  - Steps: checkout, setup Go, install mint, generate MCP server (if spec changed), deploy to Cloud Run.
-  - Uses Workload Identity Federation for keyless GCP authentication from GitHub Actions.
-  - `mint deploy gcp` command generates this workflow when `--ci` flag is passed.
-  - Acceptance: Generated workflow file is valid GitHub Actions YAML. Workflow deploys successfully when triggered.
-  - Deps: T15.1, T13.2
-  - [x] S18.1.1 Add unit test for workflow template rendering  Est: 30m
-  - [x] S18.1.2 Run linter and formatter  Est: 15m
-
-- [x] T18.2 Implement Workload Identity Federation setup  Owner: TBD  Est: 1.5h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/workloadidentity.go`.
-  - When `--ci` flag is passed, provision:
-    - Workload Identity Pool for GitHub Actions.
-    - Workload Identity Provider linked to the GitHub repository.
-    - Service account with deploy permissions bound to the pool.
-  - Print the `workload_identity_provider` and `service_account` values for the GitHub Actions workflow.
-  - Idempotent: skip if pool/provider already exist.
-  - Acceptance: GitHub Actions workflow can authenticate to GCP without service account keys.
-  - Deps: T13.3
-  - [x] S18.2.1 Add unit tests with mock IAM/STS clients  Est: 30m
-  - [x] S18.2.2 Run linter and formatter  Est: 15m
-
-- [x] T18.3 Implement deploy orchestrator (end-to-end flow)  Owner: TBD  Est: 2h  Completed: 2026-03-08
-  - Create `internal/deploy/gcp/deploy.go` as the top-level orchestrator.
-  - Orchestration sequence:
-    1. Validate DeployConfig.
-    2. Authenticate to GCP.
-    3. Provision Artifact Registry repository (T14.1).
-    4. Build container image via Cloud Build (T14.2).
-    5. Provision Cloud Run service (T15.1).
-    6. Apply IAM policy (T15.2).
-    7. Mount secrets (T15.3, if any).
-    8. Apply labels (T15.4).
-    9. Run health check (T15.6).
-    10. Push source to Cloud Source Repositories (T16.2, if enabled).
-    11. Print deploy summary (URL, revision, status).
-  - If any step fails, print clear error and exit. If health check fails, rollback.
-  - Progress output to stderr. Final URL to stdout (for piping).
-  - Acceptance: `mint deploy gcp --project P --region R --source ./server` executes all steps in order. Single command from source to live endpoint.
-  - Deps: T14.1, T14.2, T15.1, T15.2, T15.3, T15.4, T15.6, T16.2
-  - [x] S18.3.1 Add integration test for full deploy flow (mock all GCP clients)  Est: 1h
-  - [x] S18.3.2 Run linter and formatter  Est: 15m
-
-### Epic E19: Testing and Documentation
-
-- [x] T19.1 Add integration tests for deploy command  Owner: TBD  Est: 2h  Completed: 2026-03-08
-  - Test the full deploy flow with mocked GCP SDK clients.
-  - Test error paths: missing credentials, build failure, health check failure, rollback.
-  - Test idempotency: deploy twice, verify no errors.
-  - Test canary: deploy with `--canary 10`, verify traffic split.
-  - Acceptance: All integration tests pass. 80%+ coverage on `internal/deploy/` package.
-  - Deps: T18.3
-  - [x] S19.1.1 Run linter and formatter  Est: 15m
-
-- [x] T19.2 Add deploy command to CLI help text  Owner: TBD  Est: 30m  Completed: 2026-03-08
-  - Update `printUsage()` in main.go to include `deploy` command.
-  - Add `--help` text for `deploy gcp`, `deploy status`, `deploy rollback`.
-  - Acceptance: `mint help` lists deploy. `mint deploy --help` lists subcommands. All flags documented.
-  - Deps: T13.1
-  - [x] S19.2.1 Run linter and formatter  Est: 15m
-
-- [x] T19.3 Write deploy documentation in README  Owner: TBD  Est: 1h  Completed: 2026-03-08
-  - Add deploy section to README covering:
-    - Prerequisites (GCP project, billing, gcloud CLI for auth).
-    - Quickstart: generate MCP server, deploy to Cloud Run.
-    - Security controls and SOC2 compliance.
-    - Canary deployments.
-    - CI/CD setup with GitHub Actions.
-    - Rollback procedure.
-  - Acceptance: README section is complete with examples. No missing steps.
-  - Deps: T18.3
-  - [x] S19.3.1 Run linter and formatter  Est: 15m
-
-- [x] T19.4 Run final linter and formatter pass on all deploy code  Owner: TBD  Est: 30m  Completed: 2026-03-08
+- [ ] T23.2 Run linter and formatter on all changed packages  Owner: TBD  Est: 15m
   - `golangci-lint run ./internal/deploy/...`
   - `golangci-lint run ./cmd/mint/...`
   - `gofmt -s -w .`
   - Acceptance: Zero lint findings. Zero formatting changes.
-  - Deps: all E13-E18 tasks
+  - Deps: T23.1
 
-### Archived
-
-- **E1 through E12 (v0.1.0)** -- Completed. All tasks trimmed. Stable knowledge preserved in docs/design.md.
+- [ ] T23.3 Manual end-to-end validation with petstore example  Owner: TBD  Est: 1h
+  - Generate petstore MCP server: `mint mcp generate testdata/petstore.yaml --output /tmp/petstore-mcp`
+  - Deploy: `mint deploy gcp --project <test-project> --source /tmp/petstore-mcp --public`
+  - Check status: `mint deploy status --project <test-project> --service petstore-mcp`
+  - Verify health endpoint: `curl <service-url>/health`
+  - Rollback: `mint deploy rollback --project <test-project> --service petstore-mcp`
+  - Acceptance: All commands succeed. Health check returns 200. Rollback shifts traffic.
+  - Deps: T23.2
 
 ---
 
 ## Parallel Work
 
-### Track A: CLI and Config (E13)
+### Track A: Adapters with no cross-deps (can all run in parallel)
 
-Tasks: T13.1, T13.2, T13.3
+Tasks: T20.1 (first), then T20.2, T20.3, T20.6, T20.7, T20.8 (all parallel after T20.1)
 
-### Track B: Container Build (E14)
+### Track B: Cloud Run adapter (needed by IAM, status, rollback)
 
-Tasks: T14.1, T14.2, T14.3
+Tasks: T20.4, then T20.5
 
-### Track C: Cloud Run + Security (E15)
+### Track C: CLI wiring (depends on adapters)
 
-Tasks: T15.1, T15.2, T15.3, T15.4, T15.5, T15.6, T15.7
+Tasks: T21.1, T21.2, T21.3 (all parallel after Track A and B complete)
 
-### Track D: Source Repository (E16)
+### Track D: API check (independent)
 
-Tasks: T16.1, T16.2
+Tasks: T22.1 (parallel with Track A/B)
 
 ### Parallel Execution
 
 | Phase | Track A | Track B | Track C | Track D |
 |-------|---------|---------|---------|---------|
-| Phase 1 | T13.1, T13.2 | T14.3 | T15.5 | -- |
-| Phase 2 | T13.3 | -- | -- | -- |
-| Phase 3 | -- | T14.1 | -- | T16.1 |
-| Phase 4 | -- | T14.2 | T15.1 | T16.2 |
-| Phase 5 | -- | -- | T15.2, T15.3, T15.4 | -- |
-| Phase 6 | -- | -- | T15.6, T15.7 | -- |
+| Phase 1 | T20.1 | -- | -- | -- |
+| Phase 2 | T20.2, T20.3, T20.6, T20.7, T20.8 | T20.4 | -- | T22.1 |
+| Phase 3 | -- | T20.5 | -- | -- |
+| Phase 4 | -- | -- | T21.1, T21.2, T21.3 | -- |
+| Phase 5 | -- | -- | T23.1, T23.2, T23.3 | -- |
 
 **Sync points:**
-- T13.3 (auth) must complete before T14.1, T15.1, T16.1 can start.
-- T14.2 (build) must complete before T15.1 (Cloud Run deploy) can start.
-- T15.1 must complete before T15.2, T15.3, T15.4, T15.6, T15.7.
-- T14.3 and T15.5 have no dependencies and can run in Phase 1 alongside Track A.
-- E17 (canary) and E18 (pipeline) depend on E15 completion.
-- E19 (testing/docs) runs last after all implementation is complete.
+- T20.1 must complete before all other T20.x tasks.
+- T20.4 must complete before T20.5, T21.2, T21.3.
+- All T20.x tasks must complete before T21.1.
+- All T21.x tasks must complete before T23.x tasks.
 
 ---
 
@@ -414,11 +326,9 @@ Tasks: T16.1, T16.2
 
 | Milestone | ID | Dependencies | Exit Criteria |
 |-----------|----|--------------|---------------|
-| M6: Deploy Foundation | E13, E14 | None | `mint deploy gcp --help` works. Container image builds via Cloud Build. Distroless Dockerfile template updated. |
-| M7: Cloud Run Live | E15 | M6 | MCP server deployed to Cloud Run with SOC2 controls. Health check passes. Rollback works. |
-| M8: Source + Canary | E16, E17 | M7 | Source code in Cloud Source Repos. Canary deployments with traffic splitting. Status command works. |
-| M9: AI-Native Pipeline | E18 | M7 | GitHub Actions workflow deploys on push. Workload Identity Federation configured. End-to-end orchestrator tested. |
-| M10: Ship Deploy | E19 | M7, M8, M9 | Integration tests pass. README updated. CLI help complete. v0.2.0 released. |
+| M11: Adapters Complete | E20 | None | All 8 adapter files compile. Interface checks pass. `go build ./cmd/mint/` succeeds. |
+| M12: CLI Wired | E21 | M11 | `mint deploy gcp`, `mint deploy status`, `mint deploy rollback` execute real GCP calls (no "not yet implemented"). |
+| M13: Production Ready | E22, E23 | M12 | API check works. All tests pass. Lint clean. Manual e2e validation passes. |
 
 ---
 
@@ -426,13 +336,11 @@ Tasks: T16.1, T16.2
 
 | ID | Risk | Impact | Likelihood | Mitigation |
 |----|------|--------|------------|------------|
-| R9 | GCP Go SDK API breaking changes | Medium | Low | Pin SDK versions in go.mod. Wrap SDK calls in internal adapters. |
-| R10 | Cloud Build quotas throttle high-frequency deploys | Medium | Medium | Use regional Cloud Build. Document quota increase request process. Consider pre-built images for unchanged code. |
-| R11 | SSE connections dropped by Cloud Run default timeout | High | High | Set request timeout to 3600s for SSE transport. Document `--cpu-always` flag for persistent connections. |
-| R12 | Users lack GCP project setup knowledge | Medium | High | Provide clear prerequisites in README. Print actionable error messages for common setup issues (billing not enabled, APIs not enabled). |
-| R13 | Workload Identity Federation setup complexity | Medium | Medium | Automate setup via `--ci` flag. Print step-by-step instructions if manual setup is needed. |
-| R14 | Distroless containers limit debugging | Low | Medium | Provide `--debug-image` flag for non-production deployments that uses alpine base with shell. |
-| R15 | Cloud Source Repositories being deprecated | Medium | Low | Make source repo push optional (enabled by default, disabled with `--no-source-repo`). Source code is always available locally. |
+| R16 | Cloud Run SDK v2 has different API surface than expected by existing interfaces | High | Medium | Read SDK docs before coding. Adjust adapter mapping layer. Do not change interfaces. |
+| R17 | Cloud Build requires Cloud Storage bucket for source upload | Medium | High | Use the Cloud Build SDK's built-in source upload mechanism. Check if gs://[project]_cloudbuild bucket exists. |
+| R18 | Cloud Source Repositories API deprecated | Low | High | Default `--no-source-repo` to true. Log deprecation warning. Keep adapter minimal. |
+| R19 | Long-running operations (LRO) have inconsistent wait patterns across GCP SDKs | Medium | Medium | Each SDK has its own LRO helper (e.g., `op.Wait(ctx)`). Use SDK-native patterns. |
+| R20 | GCP SDK auth fails in CI environments | Medium | Low | Support `GOOGLE_APPLICATION_CREDENTIALS` env var. Document Workload Identity Federation for CI. |
 
 ---
 
@@ -443,12 +351,10 @@ Tasks: T16.1, T16.2
 A task is done when:
 1. Code compiles with zero warnings.
 2. All new code has unit tests that pass.
-3. Integration tests pass for the affected command.
+3. `go test ./...` passes with no regressions.
 4. `golangci-lint run` passes with no new findings.
 5. `gofmt -s` produces no changes.
-6. CLI help text is accurate for any new/changed commands.
-7. GCP SDK calls are wrapped with clear error messages for common failure modes.
-8. Security controls are verified (IAM, secrets, non-root, TLS).
+6. Adapter satisfies its interface (compile-time `var _ Interface = (*Adapter)(nil)` check).
 
 ### Review and QA Steps
 
@@ -456,8 +362,7 @@ A task is done when:
 2. Run `go test ./...` and verify no regressions.
 3. Run `golangci-lint run` and fix any findings.
 4. Run `gofmt -s -w .` to ensure formatting.
-5. For deploy tasks: verify with a real GCP project that the deployment succeeds (or verify mocks cover all API calls).
-6. For security tasks: verify the deployed service configuration matches SOC2 requirements.
+5. Verify adapter type assertions compile.
 
 ### Commit Policy
 
@@ -471,21 +376,18 @@ A task is done when:
 
 ## Progress Log
 
-### 2026-03-07 -- Change Summary (Plan Created)
+### 2026-03-11 -- Change Summary (Plan Created)
 
-- Trimmed completed epics E1 through E12 (v0.1.0). Stable knowledge preserved in docs/design.md.
-- Created new plan for `mint deploy` command targeting Google Cloud Platform.
-- Added 7 new epics: E13 (Deploy Foundation), E14 (Container Build), E15 (Cloud Run + SOC2), E16 (Source Repos), E17 (Canary), E18 (AI Pipeline), E19 (Testing/Docs).
-- Total: 22 tasks, 44 subtasks.
-- Created 4 ADRs:
-  - docs/adr/001-gcp-cloud-run-deployment-target.md -- Cloud Run as initial deploy target.
-  - docs/adr/002-go-sdk-over-terraform-for-provisioning.md -- Go SDK over Terraform.
-  - docs/adr/003-ai-native-release-pipeline.md -- AI-native release pipeline design.
-  - docs/adr/004-soc2-security-controls-for-cloud-run.md -- SOC2 security controls.
-- 5 milestones defined: M6 through M10.
-- 7 risks identified: R9 through R15.
+- Audited deploy codebase. Found all E13-E19 tasks marked complete but actual code is scaffolded with interfaces only and CLI stubs.
+- Updated docs/design.md to document the deploy architecture gap.
+- Created new plan with 3 epics: E20 (Adapters), E21 (CLI Wiring), E22 (API Check), E23 (Validation).
+- Total: 12 tasks, 24 subtasks.
+- Created ADR: docs/adr/005-gcp-sdk-adapter-pattern.md -- Adapter file naming and structure.
+- Changed Source Repo default to opt-out (--no-source-repo) due to API deprecation (R18).
+- 3 milestones defined: M11 through M13.
+- 5 risks identified: R16 through R20.
 
-### 2026-03-07 -- Plan Created
+### 2026-03-11 -- Plan Created
 
 - No implementation progress yet. Plan is new.
 
@@ -495,87 +397,64 @@ A task is done when:
 
 ### What You Need to Know
 
-1. **Context**: Mint is a Go CLI that generates MCP servers from OpenAPI specs. All generation features (E1-E12) are complete. This plan adds cloud deployment capabilities starting with GCP Cloud Run.
-2. **Previous work**: See docs/design.md for architecture, conventions, and completed milestones.
-3. **New dependencies**: GCP Go SDK packages (`cloud.google.com/go/run`, `cloud.google.com/go/artifactregistry`, `cloud.google.com/go/cloudbuild`, `cloud.google.com/go/secretmanager`, `cloud.google.com/go/sourcerepo`, `cloud.google.com/go/iam`).
-4. **Security**: SOC2 controls are enforced by default. Permissive options (`--public`, `--debug-image`) require explicit flags.
-5. **Testing**: Mock all GCP SDK clients for unit and integration tests. Real GCP project needed only for manual validation.
-6. **Key files**:
-   - `cmd/mint/deploy.go` -- CLI command and flag parsing.
-   - `internal/deploy/config.go` -- Deploy configuration model.
-   - `internal/deploy/gcp/` -- All GCP-specific provisioning and deployment logic.
-   - `internal/deploy/gcp/deploy.go` -- Top-level orchestrator.
+1. **Architecture**: The deploy feature uses interface-based dependency injection. All business logic is complete and tested with mocks. You are implementing the "adapters" -- thin wrappers around real GCP SDK clients.
+2. **Key pattern**: Each adapter file follows `<service>_adapter.go` naming. Each contains a struct wrapping the SDK client and implementing one or more interfaces from the same package.
+3. **Existing code to study**: `internal/deploy/gcp/registry.go` shows the interface + business logic pattern. Your adapter must implement `RegistryClient` from that file.
+4. **CLI entry point**: `cmd/mint/deploy.go` lines 115-116 is where "not yet implemented" lives. Replace with adapter instantiation and Deployer.Deploy() call.
+5. **The Deployer orchestrator**: `internal/deploy/gcp/deploy.go` is the top-level flow. Read it to understand the call sequence.
+6. **Testing strategy**: Existing mock tests validate business logic. Adapter tests should be minimal (compile-time interface checks, basic unit tests). Real validation is manual e2e.
 
 ### Credentials and Links (Placeholders)
 
 - GCP project for testing: TBD (create a dedicated test project).
-- GitHub org: `github.com/sirerun` -- existing.
-- Workload Identity Federation pool: created by `mint deploy gcp --ci`.
+- Required IAM roles for deployer: `roles/run.admin`, `roles/artifactregistry.admin`, `roles/cloudbuild.builds.editor`, `roles/secretmanager.admin`, `roles/iam.serviceAccountAdmin`.
 - No API keys or secrets stored in repository.
 
 ---
 
 ## Appendix
 
-### Deploy Command Examples
+### GCP SDK Package References
 
-**Basic deploy:**
-```
-mint mcp generate petstore.yaml --output ./server
-mint deploy gcp --project my-project --region us-central1 --source ./server
-```
+| Interface | GCP SDK Package | Key Types |
+|-----------|----------------|-----------|
+| RegistryClient | `cloud.google.com/go/artifactregistry/apiv1` | `artifactregistrypb.Repository`, `artifactregistrypb.CreateRepositoryRequest` |
+| BuildClient | `cloud.google.com/go/cloudbuild/apiv1/v2` | `cloudbuildpb.Build`, `cloudbuildpb.CreateBuildRequest` |
+| CloudRunClient | `cloud.google.com/go/run/apiv2` | `runpb.Service`, `runpb.CreateServiceRequest`, `runpb.UpdateServiceRequest` |
+| StatusClient | `cloud.google.com/go/run/apiv2` | `runpb.Service`, `runpb.Revision`, `runpb.ListRevisionsRequest` |
+| RevisionClient | `cloud.google.com/go/run/apiv2` | `runpb.Revision`, `runpb.UpdateServiceRequest` (for traffic) |
+| TrafficClient | `cloud.google.com/go/run/apiv2` | `runpb.TrafficTarget`, `runpb.UpdateServiceRequest` |
+| IAMPolicyClient | `cloud.google.com/go/run/apiv2` (GetIamPolicy/SetIamPolicy on services) | `iampb.Policy`, `iampb.Binding` |
+| IAMClient | `cloud.google.com/go/iam/admin/apiv1` | `adminpb.ServiceAccount`, `adminpb.CreateServiceAccountRequest` |
+| SecretClient | `cloud.google.com/go/secretmanager/apiv1` | `secretmanagerpb.Secret`, `secretmanagerpb.CreateSecretRequest` |
+| SourceRepoClient | `google.golang.org/api/sourcerepo/v1` | REST API types |
+| GitClient | `os/exec` | No SDK, shell out to `git` binary |
 
-**Deploy with secrets:**
-```
-mint deploy gcp --project my-project --source ./server \
-  --secret API_KEY=petstore-api-key \
-  --secret DB_PASSWORD=petstore-db-pass
-```
+### Adapter Constructor Pattern
 
-**Canary deploy:**
-```
-mint deploy gcp --project my-project --source ./server --canary 10
-# After validation:
-mint deploy gcp --promote --project my-project --service petstore-mcp
-```
+Each adapter follows this pattern:
 
-**Check status:**
 ```
-mint deploy status --project my-project --service petstore-mcp
-mint deploy status --project my-project --service petstore-mcp --format json
+type CloudRunAdapter struct {
+    services *run.ServicesClient
+    revisions *run.RevisionsClient
+}
+
+func NewCloudRunAdapter(ctx context.Context) (*CloudRunAdapter, error) {
+    svc, err := run.NewServicesClient(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("creating Cloud Run services client: %w", err)
+    }
+    rev, err := run.NewRevisionsClient(ctx)
+    if err != nil {
+        svc.Close()
+        return nil, fmt.Errorf("creating Cloud Run revisions client: %w", err)
+    }
+    return &CloudRunAdapter{services: svc, revisions: rev}, nil
+}
+
+func (a *CloudRunAdapter) Close() error {
+    a.revisions.Close()
+    return a.services.Close()
+}
 ```
-
-**Rollback:**
-```
-mint deploy rollback --project my-project --service petstore-mcp
-```
-
-**Setup CI/CD:**
-```
-mint deploy gcp --project my-project --source ./server --ci
-# Generates .github/workflows/deploy-gcp.yml and provisions Workload Identity Federation
-```
-
-### GCP APIs Required
-
-The following GCP APIs must be enabled in the target project. `mint deploy gcp` will check and print instructions if any are missing:
-
-- Cloud Run Admin API (`run.googleapis.com`)
-- Cloud Build API (`cloudbuild.googleapis.com`)
-- Artifact Registry API (`artifactregistry.googleapis.com`)
-- Secret Manager API (`secretmanager.googleapis.com`)
-- Source Repo API (`sourcerepo.googleapis.com`)
-- IAM API (`iam.googleapis.com`)
-- Cloud Resource Manager API (`cloudresourcemanager.googleapis.com`)
-
-### SOC2 Control Mapping
-
-| SOC2 Criteria | Control | Implementation |
-|---------------|---------|----------------|
-| CC6.1 Logical access | IAM-based authentication | Cloud Run `--no-allow-unauthenticated` default |
-| CC6.1 Least privilege | Dedicated service account | Per-deployment SA with minimal roles |
-| CC6.6 Encryption in transit | TLS 1.2+ | Cloud Run built-in TLS termination |
-| CC6.7 Encryption at rest | Google-managed encryption | Artifact Registry and Secret Manager defaults |
-| CC7.1 Monitoring | Cloud Audit Logs | Enabled by default for Cloud Run admin operations |
-| CC7.2 Change management | Deployment labels | Commit SHA, spec hash, deployer, timestamp on every revision |
-| CC8.1 Change control | Immutable containers | Distroless base, no shell, non-root execution |
