@@ -11,6 +11,7 @@ import (
 {{range .Tools}}
 func (s *Server) handle{{exportName .Name}}(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args := request.GetArguments()
+	_ = args
 
 	path := "{{.HTTPPath}}"
 {{- range .Params}}
