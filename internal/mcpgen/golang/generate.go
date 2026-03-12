@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"unicode"
@@ -44,6 +45,7 @@ func Generate(server *mcpgen.MCPServer, outputDir string) error {
 	funcMap := template.FuncMap{
 		"exportName":    exportName,
 		"hasBodyParams": hasBodyParams,
+		"goString":      goString,
 	}
 
 	templates := []struct {
@@ -107,6 +109,12 @@ func exportName(name string) string {
 		}
 	}
 	return result.String()
+}
+
+// goString escapes a string for use inside a Go double-quoted string literal.
+func goString(s string) string {
+	q := strconv.Quote(s)
+	return q[1 : len(q)-1]
 }
 
 // hasBodyParams checks if any params have In == "body".

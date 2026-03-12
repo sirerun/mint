@@ -31,7 +31,7 @@ func NewServer(baseURL, apiKey string) *Server {
 	mcpSrv.AddTool(
 		mcp.Tool{
 			Name:        "{{.Name}}",
-			Description: "{{.Description}}",
+			Description: "{{goString .Description}}",
 			InputSchema: mcp.ToolInputSchema{
 				Type: "object",
 				Properties: map[string]interface{}{
@@ -39,7 +39,7 @@ func NewServer(baseURL, apiKey string) *Server {
 					"{{$key}}": map[string]interface{}{
 						"type":        "{{$val.Type}}",
 {{- if $val.Description}}
-						"description": "{{$val.Description}}",
+						"description": "{{goString $val.Description}}",
 {{- end}}
 {{- if $val.Format}}
 						"format":      "{{$val.Format}}",
