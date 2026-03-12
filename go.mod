@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	cloud.google.com/go/artifactregistry v1.20.0
 	cloud.google.com/go/cloudbuild v1.25.0
+	cloud.google.com/go/run v1.15.0
 	cloud.google.com/go/secretmanager v1.16.0
 	cloud.google.com/go/storage v1.61.1
 	github.com/ncruces/go-sqlite3 v0.31.1
