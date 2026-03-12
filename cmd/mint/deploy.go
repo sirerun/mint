@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirerun/mint/internal/deploy"
+	"github.com/sirerun/mint/internal/deploy/gcp"
 )
 
 // stringSliceFlag collects multiple flag values into a slice.
@@ -112,16 +115,161 @@ func runDeployGCP(args []string) int {
 		return 1
 	}
 
-	fmt.Fprintln(os.Stderr, "deploy gcp: not yet implemented")
-	return 1
+	ctx := context.Background()
+
+	// Check that required GCP APIs are enabled.
+	if err := gcp.CheckAPIsEnabled(ctx, config.ProjectID); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Authenticate with GCP.
+	creds, err := gcp.Authenticate(ctx, config.ProjectID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	config.ProjectID = creds.ProjectID
+
+	// Instantiate SDK adapters.
+	registryAdapter, err := gcp.NewArtifactRegistryAdapter(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	defer registryAdapter.Close()
+
+	buildAdapter, err := gcp.NewCloudBuildAdapterFromContext(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	defer buildAdapter.Close()
+
+	crAdapter, err := gcp.NewCloudRunAdapter(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	defer crAdapter.Close()
+
+	iamPolicyAdapter := gcp.NewIAMPolicyAdapter(crAdapter.Service.ServicesClient())
+	secretAdapter, err := gcp.NewSecretManagerAdapter(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	defer secretAdapter.Close()
+
+	// Assemble the Deployer with bridge adapters.
+	deployer := &gcp.Deployer{
+		Registry: gcp.NewRegistryBridge(registryAdapter),
+		Builder:  gcp.NewBuildBridge(buildAdapter, config.ProjectID),
+		CloudRun: gcp.NewCloudRunBridge(crAdapter.Service),
+		IAM:      gcp.NewIAMBridge(iamPolicyAdapter),
+		Secrets:  gcp.NewSecretsBridge(secretAdapter, os.Stderr),
+		Health:   gcp.NewHealthBridge(gcp.NewHealthChecker(nil)),
+		Stderr:   os.Stderr,
+	}
+
+	// Wire source repo and git if not disabled.
+	if !config.NoSourceRepo {
+		sourceRepoAdapter, srcErr := gcp.NewSourceRepoAdapter(ctx)
+		if srcErr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", srcErr)
+			return 1
+		}
+		gitClient, gitErr := gcp.NewExecGitClient()
+		if gitErr != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", gitErr)
+			return 1
+		}
+		deployer.SourceRepo = gcp.NewSourceRepoBridge(sourceRepoAdapter)
+		deployer.Git = gcp.NewGitBridge(gitClient)
+	}
+
+	// Run deployment.
+	result, err := deployer.Deploy(ctx, gcp.DeployInput{
+		Config:   &config,
+		SpecHash: config.ImageTag,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Handle canary traffic management.
+	if config.Canary > 0 && result.RevisionName != "" {
+		serviceName := gcp.ServiceFullName(config.ProjectID, config.Region, config.ServiceName)
+		_, canaryErr := gcp.SetCanaryTraffic(ctx, crAdapter.Traffic, gcp.CanaryConfig{
+			ServiceName:   serviceName,
+			NewRevision:   result.RevisionName,
+			CanaryPercent: config.Canary,
+		})
+		if canaryErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: canary traffic split failed: %v\n", canaryErr)
+		} else {
+			fmt.Fprintf(os.Stderr, "Canary: %d%% traffic routed to %s\n", config.Canary, result.RevisionName)
+		}
+	}
+
+	if config.Promote {
+		serviceName := gcp.ServiceFullName(config.ProjectID, config.Region, config.ServiceName)
+		if promoteErr := gcp.PromoteCanary(ctx, crAdapter.Traffic, serviceName); promoteErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: canary promotion failed: %v\n", promoteErr)
+		} else {
+			fmt.Fprintln(os.Stderr, "Canary promoted to 100%")
+		}
+	}
+
+	// Handle CI workflow generation.
+	if config.CI {
+		iamSAAdapter, iamErr := gcp.NewIAMServiceAccountAdapter(ctx)
+		if iamErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: IAM adapter creation failed: %v\n", iamErr)
+		} else {
+			defer iamSAAdapter.Close()
+			wiResult, wiErr := gcp.EnsureWorkloadIdentity(ctx, iamSAAdapter, gcp.WorkloadIdentityConfig{
+				ProjectID:     config.ProjectID,
+				ProjectNumber: "",
+			}, os.Stderr)
+			if wiErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: workload identity setup failed: %v\n", wiErr)
+			} else {
+				outputDir := filepath.Dir(config.SourceDir)
+				wfResult, wfErr := gcp.GenerateWorkflow(gcp.WorkflowConfig{
+					ProjectID:                config.ProjectID,
+					Region:                   config.Region,
+					ServiceName:              config.ServiceName,
+					SourceDir:                config.SourceDir,
+					WorkloadIdentityProvider: wiResult.ProviderName,
+					ServiceAccountEmail:      wiResult.ServiceAccount,
+				}, outputDir)
+				if wfErr != nil {
+					fmt.Fprintf(os.Stderr, "warning: workflow generation failed: %v\n", wfErr)
+				} else {
+					fmt.Fprintf(os.Stderr, "CI workflow written to %s\n", wfResult.FilePath)
+				}
+			}
+		}
+	}
+
+	// Print service URL to stdout.
+	fmt.Println(result.ServiceURL)
+
+	if !result.Healthy {
+		fmt.Fprintln(os.Stderr, "Warning: service health check failed")
+	}
+
+	return 0
 }
 
 func runDeployStatus(args []string) int {
 	fs := flag.NewFlagSet("mint deploy status", flag.ContinueOnError)
-	fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
-	fs.String("region", "us-central1", "GCP region")
-	fs.String("service", "", "Cloud Run service name (required)")
-	fs.String("format", "", "Output format (json)")
+	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
+	region := fs.String("region", "us-central1", "GCP region")
+	service := fs.String("service", "", "Cloud Run service name (required)")
+	format := fs.String("format", "", "Output format (json)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -130,15 +278,41 @@ func runDeployStatus(args []string) int {
 		return 1
 	}
 
-	fmt.Fprintln(os.Stderr, "deploy status: not yet implemented")
-	return 1
+	if *service == "" {
+		fmt.Fprintln(os.Stderr, "error: --service is required")
+		return 1
+	}
+
+	ctx := context.Background()
+
+	creds, err := gcp.Authenticate(ctx, *project)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	crAdapter, err := gcp.NewCloudRunAdapter(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	defer crAdapter.Close()
+
+	result, err := gcp.GetStatus(ctx, crAdapter.Status, creds.ProjectID, *region, *service)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Print(gcp.FormatStatus(result, *format == "json"))
+	return 0
 }
 
 func runDeployRollback(args []string) int {
 	fs := flag.NewFlagSet("mint deploy rollback", flag.ContinueOnError)
-	fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
-	fs.String("region", "us-central1", "GCP region")
-	fs.String("service", "", "Cloud Run service name (required)")
+	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
+	region := fs.String("region", "us-central1", "GCP region")
+	service := fs.String("service", "", "Cloud Run service name (required)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -147,8 +321,34 @@ func runDeployRollback(args []string) int {
 		return 1
 	}
 
-	fmt.Fprintln(os.Stderr, "deploy rollback: not yet implemented")
-	return 1
+	if *service == "" {
+		fmt.Fprintln(os.Stderr, "error: --service is required")
+		return 1
+	}
+
+	ctx := context.Background()
+
+	creds, err := gcp.Authenticate(ctx, *project)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	crAdapter, err := gcp.NewCloudRunAdapter(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+	defer crAdapter.Close()
+
+	result, err := gcp.Rollback(ctx, crAdapter.Revision, creds.ProjectID, *region, *service)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(os.Stderr, "Rolled back: traffic shifted from %s to %s\n", result.CurrentRevision, result.PreviousRevision)
+	return 0
 }
 
 func printDeployUsage() {
