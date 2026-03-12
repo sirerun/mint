@@ -110,7 +110,7 @@ The following are NOT implemented:
 
 Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
 
-- [ ] T20.1 Add GCP SDK dependencies to go.mod  Owner: TBD  Est: 15m
+- [x] T20.1 Add GCP SDK dependencies to go.mod  Owner: TBD  Est: 15m
   - Run `go get` for:
     - `cloud.google.com/go/run/apiv2`
     - `cloud.google.com/go/cloudbuild/apiv1/v2`
@@ -120,7 +120,7 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - Acceptance: `go build ./cmd/mint/` succeeds. No unused deps.
   - Deps: none
 
-- [ ] T20.2 Implement Artifact Registry adapter (`registry_adapter.go`)  Owner: TBD  Est: 45m
+- [x] T20.2 Implement Artifact Registry adapter (`registry_adapter.go`)  Owner: TBD  Est: 45m
   - Create `internal/deploy/gcp/registry_adapter.go`.
   - Struct `ArtifactRegistryAdapter` wrapping `artifactregistry.Client`.
   - Constructor `NewArtifactRegistryAdapter(ctx context.Context) (*ArtifactRegistryAdapter, error)` that creates a real SDK client.
@@ -128,10 +128,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - Both methods delegate directly to the underlying SDK client, translating between the interface types and SDK types.
   - Acceptance: Compiles. Satisfies `RegistryClient` interface (compile-time check via `var _ RegistryClient = (*ArtifactRegistryAdapter)(nil)`).
   - Deps: T20.1
-  - [ ] S20.2.1 Add compile-time interface check and unit test  Est: 15m
-  - [ ] S20.2.2 Run linter and formatter  Est: 10m
+  - [x] S20.2.1 Add compile-time interface check and unit test  Est: 15m
+  - [x] S20.2.2 Run linter and formatter  Est: 10m
 
-- [ ] T20.3 Implement Cloud Build adapter (`build_adapter.go`)  Owner: TBD  Est: 1h
+- [x] T20.3 Implement Cloud Build adapter (`build_adapter.go`)  Owner: TBD  Est: 1h
   - Create `internal/deploy/gcp/build_adapter.go`.
   - Struct `CloudBuildAdapter` wrapping `cloudbuild.Client`.
   - Implement `BuildClient` interface: `CreateBuild`.
@@ -143,10 +143,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
     5. Return BuildResult with image URI, log URL, duration, status.
   - Acceptance: Compiles. Satisfies `BuildClient` interface.
   - Deps: T20.1
-  - [ ] S20.3.1 Add compile-time interface check and unit test  Est: 15m
-  - [ ] S20.3.2 Run linter and formatter  Est: 10m
+  - [x] S20.3.1 Add compile-time interface check and unit test  Est: 15m
+  - [x] S20.3.2 Run linter and formatter  Est: 10m
 
-- [ ] T20.4 Implement Cloud Run adapter (`cloudrun_adapter.go`)  Owner: TBD  Est: 1h
+- [x] T20.4 Implement Cloud Run adapter (`cloudrun_adapter.go`)  Owner: TBD  Est: 1h
   - Create `internal/deploy/gcp/cloudrun_adapter.go`.
   - Struct `CloudRunAdapter` wrapping `run.ServicesClient`.
   - Implement `CloudRunClient` interface: `GetService`, `CreateService`, `UpdateService`.
@@ -159,10 +159,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - These can be on the same adapter struct since they all use the Cloud Run API.
   - Acceptance: Compiles. Satisfies `CloudRunClient`, `StatusClient`, `RevisionClient`, and `TrafficClient` interfaces.
   - Deps: T20.1
-  - [ ] S20.4.1 Add compile-time interface checks and unit test  Est: 20m
-  - [ ] S20.4.2 Run linter and formatter  Est: 10m
+  - [x] S20.4.1 Add compile-time interface checks and unit test  Est: 20m
+  - [x] S20.4.2 Run linter and formatter  Est: 10m
 
-- [ ] T20.5 Implement IAM adapter (`iam_adapter.go`)  Owner: TBD  Est: 45m
+- [x] T20.5 Implement IAM adapter (`iam_adapter.go`)  Owner: TBD  Est: 45m
   - Create `internal/deploy/gcp/iam_adapter.go`.
   - Struct `IAMAdapter`.
   - For `IAMPolicyClient` interface: use `run.ServicesClient.GetIamPolicy` and `SetIamPolicy` (IAM on Cloud Run services is accessed via the Run API, not a separate IAM API).
@@ -170,10 +170,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - For `IAMClient` interface (used by workload identity): use `iam/admin/apiv1` to create/get service accounts.
   - Acceptance: Compiles. Satisfies `IAMPolicyClient` and `IAMClient` interfaces.
   - Deps: T20.1, T20.4 (shares Cloud Run client for IAM policy on services)
-  - [ ] S20.5.1 Add compile-time interface checks and unit test  Est: 15m
-  - [ ] S20.5.2 Run linter and formatter  Est: 10m
+  - [x] S20.5.1 Add compile-time interface checks and unit test  Est: 15m
+  - [x] S20.5.2 Run linter and formatter  Est: 10m
 
-- [ ] T20.6 Implement Secret Manager adapter (`secrets_adapter.go`)  Owner: TBD  Est: 45m
+- [x] T20.6 Implement Secret Manager adapter (`secrets_adapter.go`)  Owner: TBD  Est: 45m
   - Create `internal/deploy/gcp/secrets_adapter.go`.
   - Struct `SecretManagerAdapter` wrapping `secretmanager.Client`.
   - Implement `SecretClient` interface: `GetSecret`, `CreateSecret`.
@@ -181,10 +181,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - CreateSecret: create with automatic replication policy.
   - Acceptance: Compiles. Satisfies `SecretClient` interface.
   - Deps: T20.1
-  - [ ] S20.6.1 Add compile-time interface check and unit test  Est: 15m
-  - [ ] S20.6.2 Run linter and formatter  Est: 10m
+  - [x] S20.6.1 Add compile-time interface check and unit test  Est: 15m
+  - [x] S20.6.2 Run linter and formatter  Est: 10m
 
-- [ ] T20.7 Implement Source Repository adapter (`sourcerepo_adapter.go`)  Owner: TBD  Est: 30m
+- [x] T20.7 Implement Source Repository adapter (`sourcerepo_adapter.go`)  Owner: TBD  Est: 30m
   - Create `internal/deploy/gcp/sourcerepo_adapter.go`.
   - Struct `SourceRepoAdapter`.
   - Implement `SourceRepoClient` interface: `GetRepo`, `CreateRepo`.
@@ -192,10 +192,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - Use `google.golang.org/api/sourcerepo/v1` (REST API) since there is no gRPC client library.
   - Acceptance: Compiles. Satisfies `SourceRepoClient` interface.
   - Deps: T20.1
-  - [ ] S20.7.1 Add compile-time interface check and unit test  Est: 15m
-  - [ ] S20.7.2 Run linter and formatter  Est: 10m
+  - [x] S20.7.1 Add compile-time interface check and unit test  Est: 15m
+  - [x] S20.7.2 Run linter and formatter  Est: 10m
 
-- [ ] T20.8 Implement Git adapter (`git_adapter.go`)  Owner: TBD  Est: 30m
+- [x] T20.8 Implement Git adapter (`git_adapter.go`)  Owner: TBD  Est: 30m
   - Create `internal/deploy/gcp/git_adapter.go`.
   - Struct `ExecGitClient` that shells out to the `git` binary via `os/exec`.
   - Implement `GitClient` interface: `Init`, `AddAll`, `Commit`, `AddRemote`, `Push`, `HasRemote`.
@@ -203,12 +203,12 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - Check that `git` is in PATH; return clear error if not found.
   - Acceptance: Compiles. Satisfies `GitClient` interface. `git` commands execute correctly.
   - Deps: none
-  - [ ] S20.8.1 Add unit test (mock exec or test with temp dir)  Est: 15m
-  - [ ] S20.8.2 Run linter and formatter  Est: 10m
+  - [x] S20.8.1 Add unit test (mock exec or test with temp dir)  Est: 15m
+  - [x] S20.8.2 Run linter and formatter  Est: 10m
 
 ### Epic E21: CLI Wiring
 
-- [ ] T21.1 Wire `runDeployGCP` to call the Deployer orchestrator  Owner: TBD  Est: 1.5h
+- [x] T21.1 Wire `runDeployGCP` to call the Deployer orchestrator  Owner: TBD  Est: 1.5h
   - In `cmd/mint/deploy.go`, replace the "not yet implemented" stub in `runDeployGCP` with:
     1. Call `gcp.Authenticate(ctx)` to get default credentials.
     2. Instantiate all adapter structs (ArtifactRegistryAdapter, CloudBuildAdapter, CloudRunAdapter, IAMAdapter, SecretManagerAdapter, SourceRepoAdapter if enabled, ExecGitClient).
@@ -220,10 +220,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
     8. Handle `--ci` flow: call `gcp.EnsureWorkloadIdentity` and generate workflow file.
   - Acceptance: `mint deploy gcp --project P --source ./server` executes the full deploy flow. Returns 0 on success.
   - Deps: T20.2, T20.3, T20.4, T20.5, T20.6, T20.7, T20.8
-  - [ ] S21.1.1 Add unit test for CLI wiring (mock adapters via build tags or constructor injection)  Est: 30m
-  - [ ] S21.1.2 Run linter and formatter  Est: 10m
+  - [x] S21.1.1 Add unit test for CLI wiring (mock adapters via build tags or constructor injection)  Est: 30m
+  - [x] S21.1.2 Run linter and formatter  Est: 10m
 
-- [ ] T21.2 Wire `runDeployStatus` to call GetStatus  Owner: TBD  Est: 45m
+- [x] T21.2 Wire `runDeployStatus` to call GetStatus  Owner: TBD  Est: 45m
   - In `cmd/mint/deploy.go`, replace the "not yet implemented" stub in `runDeployStatus` with:
     1. Parse `--project`, `--region`, `--service`, `--format` flags (already defined but not wired).
     2. Authenticate with GCP.
@@ -233,10 +233,10 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
     6. Print to stdout.
   - Acceptance: `mint deploy status --project P --service S` prints service status. `--format json` outputs valid JSON.
   - Deps: T20.4
-  - [ ] S21.2.1 Add unit test for status CLI path  Est: 15m
-  - [ ] S21.2.2 Run linter and formatter  Est: 10m
+  - [x] S21.2.1 Add unit test for status CLI path  Est: 15m
+  - [x] S21.2.2 Run linter and formatter  Est: 10m
 
-- [ ] T21.3 Wire `runDeployRollback` to call Rollback  Owner: TBD  Est: 45m
+- [x] T21.3 Wire `runDeployRollback` to call Rollback  Owner: TBD  Est: 45m
   - In `cmd/mint/deploy.go`, replace the "not yet implemented" stub in `runDeployRollback` with:
     1. Parse `--project`, `--region`, `--service` flags (already defined but not wired).
     2. Authenticate with GCP.
@@ -245,12 +245,12 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
     5. Print result: which revision traffic was shifted to.
   - Acceptance: `mint deploy rollback --project P --service S` shifts traffic to previous revision. Returns 0 on success.
   - Deps: T20.4
-  - [ ] S21.3.1 Add unit test for rollback CLI path  Est: 15m
-  - [ ] S21.3.2 Run linter and formatter  Est: 10m
+  - [x] S21.3.1 Add unit test for rollback CLI path  Est: 15m
+  - [x] S21.3.2 Run linter and formatter  Est: 10m
 
 ### Epic E22: GCP API Enablement Check
 
-- [ ] T22.1 Implement API enablement verification  Owner: TBD  Est: 45m
+- [x] T22.1 Implement API enablement verification  Owner: TBD  Est: 45m
   - Create `internal/deploy/gcp/apis.go`.
   - Use `google.golang.org/api/serviceusage/v1` to check if required APIs are enabled.
   - Required APIs: `run.googleapis.com`, `cloudbuild.googleapis.com`, `artifactregistry.googleapis.com`, `secretmanager.googleapis.com`, `iam.googleapis.com`.
@@ -258,17 +258,17 @@ Decision rationale: docs/adr/005-gcp-sdk-adapter-pattern.md.
   - Call this check at the start of `runDeployGCP` before instantiating adapters.
   - Acceptance: Missing APIs produce actionable error message. Enabled APIs pass silently.
   - Deps: T20.1
-  - [ ] S22.1.1 Add unit test with mock serviceusage client  Est: 20m
-  - [ ] S22.1.2 Run linter and formatter  Est: 10m
+  - [x] S22.1.1 Add unit test with mock serviceusage client  Est: 20m
+  - [x] S22.1.2 Run linter and formatter  Est: 10m
 
 ### Epic E23: Validation and Cleanup
 
-- [ ] T23.1 Run full test suite and fix regressions  Owner: TBD  Est: 30m
+- [x] T23.1 Run full test suite and fix regressions  Owner: TBD  Est: 30m
   - Run `go test ./...` and fix any failures.
   - Acceptance: All tests pass. Zero regressions.
   - Deps: T21.1, T21.2, T21.3, T22.1
 
-- [ ] T23.2 Run linter and formatter on all changed packages  Owner: TBD  Est: 15m
+- [x] T23.2 Run linter and formatter on all changed packages  Owner: TBD  Est: 15m
   - `golangci-lint run ./internal/deploy/...`
   - `golangci-lint run ./cmd/mint/...`
   - `gofmt -s -w .`
