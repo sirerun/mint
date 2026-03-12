@@ -69,6 +69,12 @@ type CloudRunServiceAdapter struct {
 
 var _ CloudRunClient = (*CloudRunServiceAdapter)(nil)
 
+// ServicesClient returns the underlying run.ServicesClient for sharing with
+// other adapters that need it (e.g., IAMPolicyAdapter).
+func (a *CloudRunServiceAdapter) ServicesClient() *run.ServicesClient {
+	return a.clients.services
+}
+
 // GetService retrieves a Cloud Run service by its full resource name.
 func (a *CloudRunServiceAdapter) GetService(ctx context.Context, name string) (*Service, error) {
 	svc, err := a.clients.services.GetService(ctx, &runpb.GetServiceRequest{Name: name})
@@ -365,4 +371,3 @@ func isRevisionActive(conditions []*runpb.Condition) bool {
 	}
 	return false
 }
-

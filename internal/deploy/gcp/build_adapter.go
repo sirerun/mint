@@ -29,6 +29,27 @@ func NewCloudBuildAdapter(build *cloudbuild.Client, gcs *storage.Client) *CloudB
 	return &CloudBuildAdapter{build: build, storage: gcs}
 }
 
+// NewCloudBuildAdapterFromContext creates a CloudBuildAdapter by initializing
+// Cloud Build and Cloud Storage clients using Application Default Credentials.
+func NewCloudBuildAdapterFromContext(ctx context.Context) (*CloudBuildAdapter, error) {
+	buildClient, err := cloudbuild.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("creating cloud build client: %w", err)
+	}
+	gcsClient, err := storage.NewClient(ctx)
+	if err != nil {
+		buildClient.Close()
+		return nil, fmt.Errorf("creating storage client: %w", err)
+	}
+	return &CloudBuildAdapter{build: buildClient, storage: gcsClient}, nil
+}
+
+// Close releases the underlying clients.
+func (a *CloudBuildAdapter) Close() error {
+	a.storage.Close()
+	return a.build.Close()
+}
+
 // CreateBuild archives the source directory, uploads it to GCS, submits a
 // Cloud Build request, and waits for the build to complete.
 func (a *CloudBuildAdapter) CreateBuild(ctx context.Context, projectID string, config *BuildConfig) (*BuildResult, error) {
