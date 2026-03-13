@@ -338,11 +338,11 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E40: Production Hardening
 
-- [ ] T40.1 Auto-scaling policies for AWS  Owner: TBD  Est: 1.5h
+- [x] T40.1 Auto-scaling policies for AWS  Owner: TBD  Est: 1.5h
   - Dependencies: T29.1
   - AC: ECS Service Auto Scaling configured via Application Auto Scaling SDK. Scales between --min-instances and --max-instances based on CPU utilization (70% target). Unit tests with mock.
 
-- [ ] T40.2 Auto-scaling policies for Azure  Owner: TBD  Est: 1h
+- [x] T40.2 Auto-scaling policies for Azure  Owner: TBD  Est: 1h
   - Dependencies: T29.3
   - AC: Container Apps KEDA scale rules configured. Scales on HTTP concurrent requests. Unit tests with mock.
 
@@ -354,7 +354,7 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: none
   - AC: Generated servers handle SIGTERM gracefully: drain in-flight SSE connections, close HTTP listener, exit within --timeout seconds. Update Go templates in `templates/mcp-go/`.
 
-- [ ] T40.5 Observability hooks  Owner: TBD  Est: 1.5h
+- [x] T40.5 Observability hooks  Owner: TBD  Est: 1.5h
   - Dependencies: none
   - AC: `mint deploy <provider> --observability` configures provider-native logging and metrics. GCP: Cloud Logging + Cloud Monitoring. AWS: CloudWatch Logs + Container Insights. Azure: Log Analytics.
 

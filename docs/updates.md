@@ -1,31 +1,57 @@
-# AWS Deploy Implementation Updates
+# Mint Execution Updates
 
-## 2026-03-13 — Waves 1-4 Complete (E24, E25, E26)
+## 2026-03-13 -- Phase 2 Waves 1-4
 
-All internal AWS deploy package work is done:
-- **E24 (Scaffold):** Deployer struct, interfaces, orchestration logic, tests — M14 achieved
-- **E25 (Adapters):** All 6 SDK adapters (ECR, CodeBuild, ECS, ALB, IAM, Secrets Manager) + bridge layer + auth + API check — M15 achieved
-- **E26 (Status/Rollback/Canary):** Status, rollback, canary, health check — M16 achieved
-- **Lint:** golangci-lint v2 zero findings across entire package
-- **Stats:** 28 files, ~5000 lines of Go, all tests pass with -race
+### Wave 1 (5 agents, parallel)
+Completed 11 tasks: T30.1, T30.2, T31.6, T32.4, T35.1, T35.2, T35.5, T37.1, T37.2, T37.3, T40.4
 
-## 2026-03-13 — Wave 5 Complete (E27, E28)
+- Created `internal/deploy/azure/` package scaffold with Deployer struct and 5 SDK client interfaces
+- Created Azure auth helper and healthcheck with 100% test coverage
+- Created `internal/deploy/managed/` package with HostingClient, source upload, API token auth
+- Created `internal/registry/` package with types, index fetching/caching, and fuzzy search
+- Added graceful shutdown to generated MCP server templates (SIGTERM/SIGINT, configurable timeout)
 
-CLI wiring and CI workflow generation are done:
-- **E27 (CLI Wiring):**
-  - `mint deploy aws` subcommand with full flag parity to GCP
-  - `mint deploy status --provider aws` and `mint deploy rollback --provider aws`
-  - Updated help text documenting both deployment targets
-  - golangci-lint clean on cmd/mint/
-- **E28 (CI Workflow):**
-  - `mint deploy generate-workflow --provider aws` generates GitHub Actions deploy-aws.yml
-  - OIDC identity provider setup for keyless AWS auth from GitHub Actions
-  - Tests for workflow generation and OIDC provider logic
-- **M17 (CLI Wired):** ACHIEVED
-- **Stats:** 30+ files, ~6000 lines of Go, all tests pass with -race
+### Wave 2 (5 agents, parallel)
+Completed 24 tasks: T30.3-5, T31.1-9, T32.1-6, T35.3-4-6-7, T37.4-7
 
-### Remaining: E29 (E2E Validation)
-E29 requires deploying to a real AWS sandbox account and cannot be completed without AWS credentials and infrastructure. Tasks:
-- T29.1: Deploy Twitter API v2 MCP server to AWS ECS Fargate
-- T29.2: Validate canary deployment on AWS
-- T29.3: Document and fix bugs found during E2E
+- Azure Deployer.Deploy orchestration with 17 unit tests
+- All 5 Azure SDK adapters (ACR, ContainerApp, Environment, KeyVault, RBAC) with bridge layer
+- Azure status, rollback, and canary traffic splitting with Container Apps native revision routing
+- Managed hosting deploy with polling (exponential backoff), format functions for status/list
+- Registry list (tag filtering) and install (spec download + post-install instructions)
+
+### Wave 3 (5 agents, parallel)
+Completed 16 tasks: T33.1-4, T34.1-4, T36.1-4, T38.1-3, T40.3
+
+- `mint deploy azure` CLI wired with all flags (subscription, resource-group, region, etc.)
+- Azure status/rollback extended with `--provider azure` flag
+- Azure GitHub Actions workflow generation with OIDC federated identity
+- `mint deploy managed` CLI with deploy, status, list, delete subcommands
+- `mint login` command for API token authentication
+- `mint registry search/list/install` CLI wired
+- Custom domain support (`--domain`) for GCP, AWS, and Azure with ValidateDomain
+
+### Wave 4 (3 agents, parallel) -- IN PROGRESS
+Tasks: T40.1 (AWS auto-scaling), T40.2 (Azure auto-scaling), T40.5 (observability hooks)
+
+- T40.2 complete: Azure KEDA auto-scaling with Container Apps scale rules
+
+### Remaining Tasks (require manual intervention)
+- T29.1-5: E2E validation requires real cloud sandbox credentials (AWS + Azure)
+- T39.1-3: Registry repo seed requires creating `sirerun/mcp-registry` GitHub repo
+- T40.6-7: Hardening tests and final lint pass (after T40.1-5 complete)
+
+### Quality Status
+- All tests pass with `-race` flag
+- golangci-lint clean on all new code
+- All code pushed to origin/main after each wave
+
+---
+
+## 2026-03-13 -- Prior Work (AWS Deploy, Phase 1)
+
+### Waves 1-5 (E24-E28)
+- Full AWS ECS Fargate deployment with feature parity to GCP
+- All 6 SDK adapters + bridge layer, 100% test coverage
+- CLI wiring, CI workflow generation, OIDC setup
+- Milestones M14-M18 achieved
