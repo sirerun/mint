@@ -139,6 +139,19 @@ func NewSecretsBridge(client KeyVaultClient, stderr io.Writer) SecretProvisioner
 	return &secretsBridge{client: client, stderr: stderr}
 }
 
+// passthroughBuilder implements ImageBuilder by returning the image URI as-is.
+// It assumes the image was pre-built or will be built by ACR Tasks during push.
+type passthroughBuilder struct{}
+
+func (b *passthroughBuilder) BuildImage(_ context.Context, _, imageURI string) (string, error) {
+	return imageURI, nil
+}
+
+// NewPassthroughBuilder creates an ImageBuilder that returns the image URI unchanged.
+func NewPassthroughBuilder() ImageBuilder {
+	return &passthroughBuilder{}
+}
+
 // healthBridge implements HealthProber.
 type healthBridge struct{ checker *HealthChecker }
 
