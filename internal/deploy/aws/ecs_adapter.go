@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	ecstypes "github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
+
+const ecsStableTimeout = 10 * time.Minute
 
 // ECSAdapter wraps the AWS ECS SDK client.
 type ECSAdapter struct {
@@ -169,6 +172,29 @@ func (a *ECSAdapter) DescribeTasks(ctx context.Context, cluster string, taskARNs
 		})
 	}
 	return tasks, nil
+}
+
+func (a *ECSAdapter) ListTaskDefinitions(ctx context.Context, family string) ([]string, error) {
+	out, err := a.client.ListTaskDefinitions(ctx, &ecs.ListTaskDefinitionsInput{
+		FamilyPrefix: aws.String(family),
+		Sort:         ecstypes.SortOrderDesc,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ecs: list task definitions: %w", err)
+	}
+	return out.TaskDefinitionArns, nil
+}
+
+func (a *ECSAdapter) WaitForStableService(ctx context.Context, cluster, serviceName string) error {
+	waiter := ecs.NewServicesStableWaiter(a.client)
+	err := waiter.Wait(ctx, &ecs.DescribeServicesInput{
+		Cluster:  aws.String(cluster),
+		Services: []string{serviceName},
+	}, ecsStableTimeout)
+	if err != nil {
+		return fmt.Errorf("ecs: wait for stable service: %w", err)
+	}
+	return nil
 }
 
 func ecsServiceFromSDK(s ecstypes.Service) ECSService {

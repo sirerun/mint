@@ -412,10 +412,15 @@ func runDeployGCP(args []string) int {
 
 func runDeployStatus(args []string) int {
 	fs := flag.NewFlagSet("mint deploy status", flag.ContinueOnError)
-	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
-	region := fs.String("region", "us-central1", "GCP region")
-	service := fs.String("service", "", "Cloud Run service name (required)")
+	provider := fs.String("provider", "gcp", "Cloud provider (gcp, aws)")
+	// GCP flags
+	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID (GCP only)")
+	region := fs.String("region", "us-central1", "Region")
+	service := fs.String("service", "", "Service name (required)")
 	format := fs.String("format", "", "Output format (json)")
+	// AWS flags
+	cluster := fs.String("cluster", "mint-cluster", "ECS cluster name (AWS only)")
+	targetGroup := fs.String("target-group", "", "ALB target group ARN (AWS only)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -429,9 +434,21 @@ func runDeployStatus(args []string) int {
 		return 1
 	}
 
+	switch *provider {
+	case "gcp":
+		return runDeployStatusGCP(*project, *region, *service, *format)
+	case "aws":
+		return runDeployStatusAWS(*region, *service, *cluster, *targetGroup, *format)
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown provider %q\n", *provider)
+		return 1
+	}
+}
+
+func runDeployStatusGCP(project, region, service, format string) int {
 	ctx := context.Background()
 
-	creds, err := gcp.Authenticate(ctx, *project)
+	creds, err := gcp.Authenticate(ctx, project)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -444,21 +461,91 @@ func runDeployStatus(args []string) int {
 	}
 	defer crAdapter.Close()
 
-	result, err := gcp.GetStatus(ctx, crAdapter.Status, creds.ProjectID, *region, *service)
+	result, err := gcp.GetStatus(ctx, crAdapter.Status, creds.ProjectID, region, service)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
 
-	fmt.Print(gcp.FormatStatus(result, *format == "json"))
+	fmt.Print(gcp.FormatStatus(result, format == "json"))
+	return 0
+}
+
+// awsStatusClient adapts ECSAdapter and ALBAdapter to the StatusClient interface.
+type awsStatusClient struct {
+	ecs *awspkg.ECSAdapter
+	alb *awspkg.ALBAdapter
+}
+
+func (c *awsStatusClient) DescribeService(ctx context.Context, cluster, serviceName string) (*awspkg.ServiceStatus, error) {
+	services, err := c.ecs.DescribeServices(ctx, &awspkg.DescribeServicesInput{
+		Cluster:     cluster,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s := services[0]
+	return &awspkg.ServiceStatus{
+		ServiceName:       s.ServiceName,
+		ClusterARN:        s.ClusterARN,
+		TaskDefinitionARN: s.TaskDefinitionARN,
+		Status:            s.Status,
+		DesiredCount:      s.DesiredCount,
+		RunningCount:      s.RunningCount,
+	}, nil
+}
+
+func (c *awsStatusClient) DescribeTargetHealth(ctx context.Context, targetGroupARN string) ([]awspkg.TargetHealthStatus, error) {
+	healths, err := c.alb.DescribeTargetHealth(ctx, targetGroupARN)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]awspkg.TargetHealthStatus, len(healths))
+	for i, h := range healths {
+		result[i] = awspkg.TargetHealthStatus{
+			TargetID:    h.TargetID,
+			State:       h.State,
+			Description: h.Description,
+		}
+	}
+	return result, nil
+}
+
+func runDeployStatusAWS(region, service, cluster, targetGroupARN, format string) int {
+	ctx := context.Background()
+
+	creds, err := awspkg.Authenticate(ctx, region, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	statusClient := &awsStatusClient{
+		ecs: awspkg.NewECSAdapter(creds.Config),
+		alb: awspkg.NewALBAdapter(creds.Config),
+	}
+
+	result, err := awspkg.GetStatus(ctx, statusClient, cluster, service, targetGroupARN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Print(awspkg.FormatStatus(result, format == "json"))
 	return 0
 }
 
 func runDeployRollback(args []string) int {
 	fs := flag.NewFlagSet("mint deploy rollback", flag.ContinueOnError)
-	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID")
-	region := fs.String("region", "us-central1", "GCP region")
-	service := fs.String("service", "", "Cloud Run service name (required)")
+	provider := fs.String("provider", "gcp", "Cloud provider (gcp, aws)")
+	// GCP flags
+	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID (GCP only)")
+	region := fs.String("region", "us-central1", "Region")
+	service := fs.String("service", "", "Service name (required)")
+	// AWS flags
+	cluster := fs.String("cluster", "mint-cluster", "ECS cluster name (AWS only)")
+	family := fs.String("family", "", "ECS task definition family (AWS only)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -472,9 +559,25 @@ func runDeployRollback(args []string) int {
 		return 1
 	}
 
+	switch *provider {
+	case "gcp":
+		return runDeployRollbackGCP(*project, *region, *service)
+	case "aws":
+		f := *family
+		if f == "" {
+			f = *service
+		}
+		return runDeployRollbackAWS(*region, *service, *cluster, f)
+	default:
+		fmt.Fprintf(os.Stderr, "error: unknown provider %q\n", *provider)
+		return 1
+	}
+}
+
+func runDeployRollbackGCP(project, region, service string) int {
 	ctx := context.Background()
 
-	creds, err := gcp.Authenticate(ctx, *project)
+	creds, err := gcp.Authenticate(ctx, project)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
@@ -487,13 +590,53 @@ func runDeployRollback(args []string) int {
 	}
 	defer crAdapter.Close()
 
-	result, err := gcp.Rollback(ctx, crAdapter.Revision, creds.ProjectID, *region, *service)
+	result, err := gcp.Rollback(ctx, crAdapter.Revision, creds.ProjectID, region, service)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
 
 	fmt.Fprintf(os.Stderr, "Rolled back: traffic shifted from %s to %s\n", result.CurrentRevision, result.PreviousRevision)
+	return 0
+}
+
+// awsRollbackClient adapts ECSAdapter to the RollbackClient interface.
+type awsRollbackClient struct {
+	ecs *awspkg.ECSAdapter
+}
+
+func (c *awsRollbackClient) ListTaskDefinitions(ctx context.Context, family string) ([]string, error) {
+	return c.ecs.ListTaskDefinitions(ctx, family)
+}
+
+func (c *awsRollbackClient) UpdateService(ctx context.Context, input *awspkg.UpdateECSServiceInput) (*awspkg.ECSService, error) {
+	return c.ecs.UpdateService(ctx, input)
+}
+
+func (c *awsRollbackClient) WaitForStableService(ctx context.Context, cluster, serviceName string) error {
+	return c.ecs.WaitForStableService(ctx, cluster, serviceName)
+}
+
+func runDeployRollbackAWS(region, service, cluster, family string) int {
+	ctx := context.Background()
+
+	creds, err := awspkg.Authenticate(ctx, region, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	rollbackClient := &awsRollbackClient{
+		ecs: awspkg.NewECSAdapter(creds.Config),
+	}
+
+	result, err := awspkg.Rollback(ctx, rollbackClient, cluster, service, family)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(os.Stderr, "Rolled back: task definition changed from %s to %s\n", result.CurrentTaskDef, result.PreviousTaskDef)
 	return 0
 }
 
