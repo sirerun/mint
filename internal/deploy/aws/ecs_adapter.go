@@ -13,16 +13,37 @@ import (
 
 const ecsStableTimeout = 10 * time.Minute
 
+// ecsAPI abstracts the AWS ECS SDK methods used by ECSAdapter.
+type ecsAPI interface {
+	CreateCluster(ctx context.Context, input *ecs.CreateClusterInput, optFns ...func(*ecs.Options)) (*ecs.CreateClusterOutput, error)
+	DescribeServices(ctx context.Context, input *ecs.DescribeServicesInput, optFns ...func(*ecs.Options)) (*ecs.DescribeServicesOutput, error)
+	RegisterTaskDefinition(ctx context.Context, input *ecs.RegisterTaskDefinitionInput, optFns ...func(*ecs.Options)) (*ecs.RegisterTaskDefinitionOutput, error)
+	CreateService(ctx context.Context, input *ecs.CreateServiceInput, optFns ...func(*ecs.Options)) (*ecs.CreateServiceOutput, error)
+	UpdateService(ctx context.Context, input *ecs.UpdateServiceInput, optFns ...func(*ecs.Options)) (*ecs.UpdateServiceOutput, error)
+	DescribeTasks(ctx context.Context, input *ecs.DescribeTasksInput, optFns ...func(*ecs.Options)) (*ecs.DescribeTasksOutput, error)
+	ListTaskDefinitions(ctx context.Context, input *ecs.ListTaskDefinitionsInput, optFns ...func(*ecs.Options)) (*ecs.ListTaskDefinitionsOutput, error)
+}
+
+// ecsWaiter abstracts the service-stable waiter used by ECSAdapter.
+type ecsWaiter interface {
+	Wait(ctx context.Context, input *ecs.DescribeServicesInput, maxWaitDur time.Duration, optFns ...func(*ecs.ServicesStableWaiterOptions)) error
+}
+
 // ECSAdapter wraps the AWS ECS SDK client.
 type ECSAdapter struct {
-	client *ecs.Client
+	client ecsAPI
+	waiter ecsWaiter
 }
 
 var _ ECSClient = (*ECSAdapter)(nil)
 
 // NewECSAdapter creates an ECSAdapter from an AWS config.
 func NewECSAdapter(cfg aws.Config) *ECSAdapter {
-	return &ECSAdapter{client: ecs.NewFromConfig(cfg)}
+	c := ecs.NewFromConfig(cfg)
+	return &ECSAdapter{
+		client: c,
+		waiter: ecs.NewServicesStableWaiter(c),
+	}
 }
 
 func (a *ECSAdapter) CreateCluster(ctx context.Context, clusterName string) (*Cluster, error) {
@@ -186,8 +207,7 @@ func (a *ECSAdapter) ListTaskDefinitions(ctx context.Context, family string) ([]
 }
 
 func (a *ECSAdapter) WaitForStableService(ctx context.Context, cluster, serviceName string) error {
-	waiter := ecs.NewServicesStableWaiter(a.client)
-	err := waiter.Wait(ctx, &ecs.DescribeServicesInput{
+	err := a.waiter.Wait(ctx, &ecs.DescribeServicesInput{
 		Cluster:  aws.String(cluster),
 		Services: []string{serviceName},
 	}, ecsStableTimeout)

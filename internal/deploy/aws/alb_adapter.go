@@ -9,9 +9,22 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
+// elbv2API abstracts the AWS ELBv2 SDK methods used by ALBAdapter.
+type elbv2API interface {
+	CreateLoadBalancer(ctx context.Context, input *elbv2.CreateLoadBalancerInput, opts ...func(*elbv2.Options)) (*elbv2.CreateLoadBalancerOutput, error)
+	DescribeLoadBalancers(ctx context.Context, input *elbv2.DescribeLoadBalancersInput, opts ...func(*elbv2.Options)) (*elbv2.DescribeLoadBalancersOutput, error)
+	CreateTargetGroup(ctx context.Context, input *elbv2.CreateTargetGroupInput, opts ...func(*elbv2.Options)) (*elbv2.CreateTargetGroupOutput, error)
+	DescribeTargetGroups(ctx context.Context, input *elbv2.DescribeTargetGroupsInput, opts ...func(*elbv2.Options)) (*elbv2.DescribeTargetGroupsOutput, error)
+	CreateListener(ctx context.Context, input *elbv2.CreateListenerInput, opts ...func(*elbv2.Options)) (*elbv2.CreateListenerOutput, error)
+	DescribeListeners(ctx context.Context, input *elbv2.DescribeListenersInput, opts ...func(*elbv2.Options)) (*elbv2.DescribeListenersOutput, error)
+	ModifyListener(ctx context.Context, input *elbv2.ModifyListenerInput, opts ...func(*elbv2.Options)) (*elbv2.ModifyListenerOutput, error)
+	RegisterTargets(ctx context.Context, input *elbv2.RegisterTargetsInput, opts ...func(*elbv2.Options)) (*elbv2.RegisterTargetsOutput, error)
+	DescribeTargetHealth(ctx context.Context, input *elbv2.DescribeTargetHealthInput, opts ...func(*elbv2.Options)) (*elbv2.DescribeTargetHealthOutput, error)
+}
+
 // ALBAdapter implements ALBClient using the AWS SDK v2.
 type ALBAdapter struct {
-	client *elbv2.Client
+	client elbv2API
 }
 
 var _ ALBClient = (*ALBAdapter)(nil)

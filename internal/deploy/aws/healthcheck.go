@@ -52,6 +52,7 @@ func (h *HealthChecker) Check(ctx context.Context, serviceURL string) (*HealthCh
 	}
 
 	backoff := time.Second
+	var lastResult *HealthCheckResult
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		fmt.Fprintf(os.Stderr, "Health check attempt %d/%d...\n", attempt, maxRetries)
@@ -72,16 +73,17 @@ func (h *HealthChecker) Check(ctx context.Context, serviceURL string) (*HealthCh
 				return nil, fmt.Errorf("health check cancelled: %w", ctx.Err())
 			}
 			// Timeout or connection refused: retry.
+			lastResult = &HealthCheckResult{
+				Healthy:  false,
+				Attempts: attempt,
+				Duration: time.Since(start),
+			}
 			if attempt < maxRetries {
 				sleepWithContext(ctx, backoff)
 				backoff *= 2
 				continue
 			}
-			return &HealthCheckResult{
-				Healthy:  false,
-				Attempts: attempt,
-				Duration: time.Since(start),
-			}, nil
+			return lastResult, nil
 		}
 
 		body := readBody(resp)
@@ -98,27 +100,21 @@ func (h *HealthChecker) Check(ctx context.Context, serviceURL string) (*HealthCh
 		}
 
 		// Non-200: retry if attempts remain.
-		if attempt < maxRetries {
-			sleepWithContext(ctx, backoff)
-			backoff *= 2
-			continue
-		}
-
-		return &HealthCheckResult{
+		lastResult = &HealthCheckResult{
 			Healthy:    false,
 			StatusCode: resp.StatusCode,
 			Body:       body,
 			Attempts:   attempt,
 			Duration:   time.Since(start),
-		}, nil
+		}
+		if attempt < maxRetries {
+			sleepWithContext(ctx, backoff)
+			backoff *= 2
+			continue
+		}
 	}
 
-	// Should not be reached, but return unhealthy as a safety net.
-	return &HealthCheckResult{
-		Healthy:  false,
-		Attempts: maxRetries,
-		Duration: time.Since(start),
-	}, nil
+	return lastResult, nil
 }
 
 // sleepWithContext sleeps for the given duration or until the context is done.

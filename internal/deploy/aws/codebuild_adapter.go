@@ -12,9 +12,16 @@ import (
 	cbtypes "github.com/aws/aws-sdk-go-v2/service/codebuild/types"
 )
 
+// codebuildAPI abstracts the AWS CodeBuild SDK methods used by CodeBuildAdapter.
+type codebuildAPI interface {
+	CreateProject(ctx context.Context, input *codebuild.CreateProjectInput, optFns ...func(*codebuild.Options)) (*codebuild.CreateProjectOutput, error)
+	StartBuild(ctx context.Context, input *codebuild.StartBuildInput, optFns ...func(*codebuild.Options)) (*codebuild.StartBuildOutput, error)
+	BatchGetBuilds(ctx context.Context, input *codebuild.BatchGetBuildsInput, optFns ...func(*codebuild.Options)) (*codebuild.BatchGetBuildsOutput, error)
+}
+
 // CodeBuildAdapter wraps the AWS CodeBuild SDK client.
 type CodeBuildAdapter struct {
-	client *codebuild.Client
+	client codebuildAPI
 }
 
 var _ CodeBuildClient = (*CodeBuildAdapter)(nil)

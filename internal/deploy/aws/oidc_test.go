@@ -3,6 +3,7 @@ package aws
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -274,6 +275,115 @@ func TestEnsureOIDCProvider_AttachPolicyError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "policy not found") {
 		t.Errorf("error should contain 'policy not found', got: %v", err)
+	}
+}
+
+func TestPrintOIDCInstructions(t *testing.T) {
+	result := &OIDCResult{
+		ProviderARN: "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com",
+		RoleARN:     "arn:aws:iam::123456789012:role/mint-github-deploy-mint",
+		RoleName:    "mint-github-deploy-mint",
+	}
+
+	var buf bytes.Buffer
+	PrintOIDCInstructions(&buf, result)
+	output := buf.String()
+
+	checks := []struct {
+		label string
+		want  string
+	}{
+		{"provider ARN", result.ProviderARN},
+		{"role ARN", result.RoleARN},
+		{"role name", result.RoleName},
+		{"role-to-assume", "role-to-assume"},
+	}
+	for _, c := range checks {
+		if !strings.Contains(output, c.want) {
+			t.Errorf("output missing %s (%q)", c.label, c.want)
+		}
+	}
+}
+
+func TestEnsureOIDCRole_UnexpectedGetRoleError(t *testing.T) {
+	client := defaultMockOIDCClient()
+	client.getRoleFunc = func(context.Context, string) (*Role, error) {
+		return nil, fmt.Errorf("throttled")
+	}
+
+	var stderr bytes.Buffer
+	_, err := EnsureOIDCProvider(context.Background(), client, baseOIDCConfig(), &stderr)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "throttled") {
+		t.Errorf("error should contain 'throttled', got: %v", err)
+	}
+}
+
+func TestGithubOIDCTrustPolicy_ValidJSON(t *testing.T) {
+	policy, err := githubOIDCTrustPolicy(
+		"arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com",
+		"myorg",
+		"myrepo",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify it is valid JSON.
+	var parsed map[string]any
+	if jsonErr := json.Unmarshal([]byte(policy), &parsed); jsonErr != nil {
+		t.Fatalf("trust policy is not valid JSON: %v", jsonErr)
+	}
+
+	// Verify expected fields are present.
+	checks := []string{
+		"2012-10-17",
+		"sts:AssumeRoleWithWebIdentity",
+		"Federated",
+		"repo:myorg/myrepo:*",
+	}
+	for _, want := range checks {
+		if !strings.Contains(policy, want) {
+			t.Errorf("trust policy missing %q", want)
+		}
+	}
+}
+
+func TestGithubOIDCTrustPolicy_MarshalError(t *testing.T) {
+	original := oidcJSONMarshal
+	t.Cleanup(func() { oidcJSONMarshal = original })
+
+	oidcJSONMarshal = func(v any) ([]byte, error) {
+		return nil, fmt.Errorf("marshal failure")
+	}
+
+	_, err := githubOIDCTrustPolicy("arn:aws:iam::123:oidc-provider/x", "org", "repo")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "marshal failure") {
+		t.Errorf("expected 'marshal failure' in error, got: %v", err)
+	}
+}
+
+func TestEnsureOIDCProvider_TrustPolicyMarshalError(t *testing.T) {
+	original := oidcJSONMarshal
+	t.Cleanup(func() { oidcJSONMarshal = original })
+
+	oidcJSONMarshal = func(v any) ([]byte, error) {
+		return nil, fmt.Errorf("marshal boom")
+	}
+
+	client := defaultMockOIDCClient()
+	var stderr bytes.Buffer
+	_, err := EnsureOIDCProvider(context.Background(), client, baseOIDCConfig(), &stderr)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "building trust policy") {
+		t.Errorf("expected 'building trust policy' in error, got: %v", err)
 	}
 }
 

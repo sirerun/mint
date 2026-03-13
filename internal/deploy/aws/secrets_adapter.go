@@ -12,9 +12,16 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 )
 
+// secretsManagerAPI abstracts the AWS Secrets Manager SDK methods used by SecretsManagerAdapter.
+type secretsManagerAPI interface {
+	DescribeSecret(ctx context.Context, params *secretsmanager.DescribeSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error)
+	CreateSecret(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error)
+	GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+}
+
 // SecretsManagerAdapter implements SecretsClient using the AWS SDK v2.
 type SecretsManagerAdapter struct {
-	client *secretsmanager.Client
+	client secretsManagerAPI
 }
 
 var _ SecretsClient = (*SecretsManagerAdapter)(nil)

@@ -5,6 +5,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	smtypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 )
 
 type mockSecretsClient struct {
@@ -134,4 +138,226 @@ func TestEnsureSecrets_CreateFails(t *testing.T) {
 
 func TestSecretsManagerAdapterInterface(t *testing.T) {
 	var _ SecretsClient = (*SecretsManagerAdapter)(nil)
+}
+
+// --- secretsManagerAPI mock for adapter-level tests ---
+
+type stubSecretsAPI struct {
+	describeFn func(ctx context.Context, params *secretsmanager.DescribeSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error)
+	createFn   func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error)
+	getValueFn func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+}
+
+func (s *stubSecretsAPI) DescribeSecret(ctx context.Context, params *secretsmanager.DescribeSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error) {
+	return s.describeFn(ctx, params, optFns...)
+}
+
+func (s *stubSecretsAPI) CreateSecret(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+	return s.createFn(ctx, params, optFns...)
+}
+
+func (s *stubSecretsAPI) GetSecretValue(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+	return s.getValueFn(ctx, params, optFns...)
+}
+
+func sPtr(s string) *string { return &s }
+
+func TestNewSecretsManagerAdapter(t *testing.T) {
+	adapter := NewSecretsManagerAdapter(sdkaws.Config{Region: "us-east-1"})
+	if adapter == nil {
+		t.Fatal("expected non-nil adapter")
+	}
+	if adapter.client == nil {
+		t.Fatal("expected non-nil client")
+	}
+}
+
+func TestSecretsManagerAdapter_DescribeSecret(t *testing.T) {
+	arn := "arn:aws:secretsmanager:us-east-1:123456:secret:my-secret"
+	name := "my-secret"
+
+	tests := []struct {
+		name    string
+		stubFn  func(ctx context.Context, params *secretsmanager.DescribeSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error)
+		wantErr error
+		isOther bool
+		wantARN string
+	}{
+		{
+			name: "success",
+			stubFn: func(_ context.Context, _ *secretsmanager.DescribeSecretInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error) {
+				return &secretsmanager.DescribeSecretOutput{
+					ARN:  &arn,
+					Name: &name,
+				}, nil
+			},
+			wantARN: arn,
+		},
+		{
+			name: "not found mapped to sentinel",
+			stubFn: func(_ context.Context, _ *secretsmanager.DescribeSecretInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error) {
+				return nil, &smtypes.ResourceNotFoundException{Message: sPtr("not found")}
+			},
+			wantErr: ErrSecretNotFound,
+		},
+		{
+			name: "other error passed through",
+			stubFn: func(_ context.Context, _ *secretsmanager.DescribeSecretInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.DescribeSecretOutput, error) {
+				return nil, errors.New("access denied")
+			},
+			isOther: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := &SecretsManagerAdapter{client: &stubSecretsAPI{describeFn: tt.stubFn}}
+			out, err := adapter.DescribeSecret(context.Background(), "my-secret")
+
+			if tt.isOther {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if errors.Is(err, ErrSecretNotFound) {
+					t.Fatal("expected non-sentinel error")
+				}
+				return
+			}
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if out.ARN != tt.wantARN {
+				t.Fatalf("expected ARN %q, got %q", tt.wantARN, out.ARN)
+			}
+		})
+	}
+}
+
+func TestSecretsManagerAdapter_CreateSecret(t *testing.T) {
+	arn := "arn:aws:secretsmanager:us-east-1:123456:secret:new-secret"
+	name := "new-secret"
+
+	tests := []struct {
+		name    string
+		stubFn  func(ctx context.Context, params *secretsmanager.CreateSecretInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error)
+		wantErr bool
+		wantARN string
+	}{
+		{
+			name: "success",
+			stubFn: func(_ context.Context, _ *secretsmanager.CreateSecretInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return &secretsmanager.CreateSecretOutput{
+					ARN:  &arn,
+					Name: &name,
+				}, nil
+			},
+			wantARN: arn,
+		},
+		{
+			name: "error",
+			stubFn: func(_ context.Context, _ *secretsmanager.CreateSecretInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.CreateSecretOutput, error) {
+				return nil, errors.New("quota exceeded")
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := &SecretsManagerAdapter{client: &stubSecretsAPI{createFn: tt.stubFn}}
+			out, err := adapter.CreateSecret(context.Background(), &CreateSecretInput{
+				Name:        "new-secret",
+				Description: "test",
+			})
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if out.ARN != tt.wantARN {
+				t.Fatalf("expected ARN %q, got %q", tt.wantARN, out.ARN)
+			}
+		})
+	}
+}
+
+func TestSecretsManagerAdapter_GetSecretValue(t *testing.T) {
+	secret := "super-secret-value"
+
+	tests := []struct {
+		name    string
+		stubFn  func(ctx context.Context, params *secretsmanager.GetSecretValueInput, optFns ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error)
+		wantErr error
+		isOther bool
+		wantVal string
+	}{
+		{
+			name: "success",
+			stubFn: func(_ context.Context, _ *secretsmanager.GetSecretValueInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return &secretsmanager.GetSecretValueOutput{
+					SecretString: &secret,
+				}, nil
+			},
+			wantVal: secret,
+		},
+		{
+			name: "not found mapped to sentinel",
+			stubFn: func(_ context.Context, _ *secretsmanager.GetSecretValueInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, &smtypes.ResourceNotFoundException{Message: sPtr("not found")}
+			},
+			wantErr: ErrSecretNotFound,
+		},
+		{
+			name: "other error passed through",
+			stubFn: func(_ context.Context, _ *secretsmanager.GetSecretValueInput, _ ...func(*secretsmanager.Options)) (*secretsmanager.GetSecretValueOutput, error) {
+				return nil, errors.New("throttled")
+			},
+			isOther: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := &SecretsManagerAdapter{client: &stubSecretsAPI{getValueFn: tt.stubFn}}
+			val, err := adapter.GetSecretValue(context.Background(), "my-secret")
+
+			if tt.isOther {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if errors.Is(err, ErrSecretNotFound) {
+					t.Fatal("expected non-sentinel error")
+				}
+				return
+			}
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if val != tt.wantVal {
+				t.Fatalf("expected value %q, got %q", tt.wantVal, val)
+			}
+		})
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
@@ -41,6 +42,16 @@ func TestAuthenticate(t *testing.T) {
 				err: fmt.Errorf("expired credentials"),
 			},
 			wantErr: "failed to verify AWS credentials",
+		},
+		{
+			name:   "nil account returns error",
+			region: "us-west-2",
+			client: &mockSTSClient{
+				output: &sts.GetCallerIdentityOutput{
+					Account: nil,
+				},
+			},
+			wantErr: "AWS account ID could not be resolved",
 		},
 		{
 			name:   "empty account ID returns error",
@@ -90,5 +101,59 @@ func TestAuthenticate(t *testing.T) {
 				t.Errorf("Region = %q, want %q", creds.Region, tt.wantRegion)
 			}
 		})
+	}
+}
+
+func TestAuthenticate_LoadConfigError(t *testing.T) {
+	original := loadAWSConfig
+	t.Cleanup(func() { loadAWSConfig = original })
+
+	loadAWSConfig = func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+		return aws.Config{}, fmt.Errorf("no config found")
+	}
+
+	_, err := Authenticate(context.Background(), "us-east-1", nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "AWS credentials not found") {
+		t.Errorf("expected 'AWS credentials not found' in error, got: %v", err)
+	}
+}
+
+func TestAuthenticate_NilSTSClient_UsesDefault(t *testing.T) {
+	originalLoad := loadAWSConfig
+	originalSTS := newSTSClient
+	t.Cleanup(func() {
+		loadAWSConfig = originalLoad
+		newSTSClient = originalSTS
+	})
+
+	loadAWSConfig = func(ctx context.Context, optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+		return aws.Config{}, nil
+	}
+
+	mockCalled := false
+	newSTSClient = func(cfg aws.Config) STSClient {
+		mockCalled = true
+		return &mockSTSClient{
+			output: &sts.GetCallerIdentityOutput{
+				Account: aws.String("999888777666"),
+			},
+		}
+	}
+
+	creds, err := Authenticate(context.Background(), "ap-southeast-1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !mockCalled {
+		t.Fatal("expected newSTSClient to be called when stsClient is nil")
+	}
+	if creds.AccountID != "999888777666" {
+		t.Errorf("AccountID = %q, want %q", creds.AccountID, "999888777666")
+	}
+	if creds.Region != "ap-southeast-1" {
+		t.Errorf("Region = %q, want %q", creds.Region, "ap-southeast-1")
 	}
 }

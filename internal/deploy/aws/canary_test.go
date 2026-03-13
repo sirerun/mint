@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -222,6 +223,22 @@ func TestSetCanaryTraffic(t *testing.T) {
 		_, err := SetCanaryTraffic(context.Background(), client, config)
 		if err == nil {
 			t.Fatal("expected error when ModifyListener fails")
+		}
+	})
+
+	t.Run("describe listeners fails", func(t *testing.T) {
+		client := &mockCanaryClient{
+			createdTG:       &TargetGroup{ARN: "arn:tg-canary", Name: "my-svc-canary"},
+			describeListErr: errors.New("network timeout"),
+		}
+		config := validCanaryConfig()
+
+		_, err := SetCanaryTraffic(context.Background(), client, config)
+		if err == nil {
+			t.Fatal("expected error when DescribeListeners fails")
+		}
+		if !strings.Contains(err.Error(), "describe listeners") {
+			t.Errorf("error = %q, want it to contain %q", err.Error(), "describe listeners")
 		}
 	})
 }

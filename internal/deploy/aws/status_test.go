@@ -143,6 +143,85 @@ func TestGetStatus_TargetHealthFailure_PartialResult(t *testing.T) {
 	}
 }
 
+func TestGetStatus_EmptyTargetGroupARN(t *testing.T) {
+	client := &mockStatusClient{
+		service: &ServiceStatus{
+			ServiceName:       "my-svc",
+			ClusterARN:        "arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+			TaskDefinitionARN: "arn:aws:ecs:us-east-1:123456789012:task-definition/my-svc:3",
+			Status:            "ACTIVE",
+			DesiredCount:      2,
+			RunningCount:      2,
+			PendingCount:      0,
+		},
+	}
+
+	result, err := GetStatus(context.Background(), client, "my-cluster", "my-svc", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ServiceName != "my-svc" {
+		t.Errorf("ServiceName = %q, want %q", result.ServiceName, "my-svc")
+	}
+	if result.Targets != nil {
+		t.Errorf("Targets = %v, want nil when targetGroupARN is empty", result.Targets)
+	}
+}
+
+func TestFormatStatus_HumanReadable_EmptyTargets(t *testing.T) {
+	result := &StatusResult{
+		ServiceName:       "my-svc",
+		ClusterARN:        "arn:cluster",
+		TaskDefinitionARN: "arn:task-def",
+		Status:            "ACTIVE",
+		DesiredCount:      1,
+		RunningCount:      1,
+		PendingCount:      0,
+		Targets:           []TargetInfo{},
+	}
+
+	output := FormatStatus(result, false)
+	if strings.Contains(output, "Targets:") {
+		t.Error("output should not contain Targets header when targets are empty")
+	}
+	if !strings.Contains(output, "my-svc") {
+		t.Error("output missing service name")
+	}
+}
+
+func TestFormatStatus_JSONMarshalError(t *testing.T) {
+	original := jsonMarshalIndent
+	t.Cleanup(func() { jsonMarshalIndent = original })
+
+	jsonMarshalIndent = func(_ any, _ string, _ string) ([]byte, error) {
+		return nil, fmt.Errorf("forced marshal error")
+	}
+
+	result := &StatusResult{ServiceName: "svc"}
+	output := FormatStatus(result, true)
+	if !strings.Contains(output, "error") {
+		t.Errorf("expected error JSON fallback, got %q", output)
+	}
+	if !strings.Contains(output, "forced marshal error") {
+		t.Errorf("expected error message in output, got %q", output)
+	}
+}
+
+func TestFormatStatus_JSONWithNilTargets(t *testing.T) {
+	result := &StatusResult{
+		ServiceName: "svc",
+		Targets:     nil,
+	}
+	output := FormatStatus(result, true)
+	var parsed StatusResult
+	if err := json.Unmarshal([]byte(output), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if parsed.ServiceName != "svc" {
+		t.Errorf("ServiceName = %q, want %q", parsed.ServiceName, "svc")
+	}
+}
+
 func TestFormatStatus_HumanReadable(t *testing.T) {
 	result := &StatusResult{
 		ServiceName:       "my-svc",

@@ -91,6 +91,78 @@ func TestGenerateWorkflow_CreatesDirectory(t *testing.T) {
 	}
 }
 
+func TestGenerateWorkflow_TemplateParseError(t *testing.T) {
+	original := workflowTemplateStr
+	t.Cleanup(func() { workflowTemplateStr = original })
+
+	workflowTemplateStr = "{{.Invalid"
+	config := validWorkflowConfig()
+
+	_, err := GenerateWorkflow(config, t.TempDir())
+	if err == nil {
+		t.Fatal("expected error for invalid template")
+	}
+	if !strings.Contains(err.Error(), "parsing workflow template") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "parsing workflow template")
+	}
+}
+
+func TestGenerateWorkflow_TemplateExecuteError(t *testing.T) {
+	original := workflowTemplateStr
+	t.Cleanup(func() { workflowTemplateStr = original })
+
+	// A template that calls a missing function will fail on Execute.
+	workflowTemplateStr = "{{call .Missing}}"
+	config := validWorkflowConfig()
+
+	_, err := GenerateWorkflow(config, t.TempDir())
+	if err == nil {
+		t.Fatal("expected error for template execution failure")
+	}
+	if !strings.Contains(err.Error(), "executing workflow template") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "executing workflow template")
+	}
+}
+
+func TestGenerateWorkflow_InvalidOutputDir(t *testing.T) {
+	config := validWorkflowConfig()
+
+	// Use /dev/null as outputDir — it exists as a file, so MkdirAll will fail
+	// trying to create a subdirectory under it.
+	_, err := GenerateWorkflow(config, "/dev/null")
+	if err == nil {
+		t.Fatal("expected error for invalid output directory")
+	}
+	if !strings.Contains(err.Error(), "creating workflow directory") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "creating workflow directory")
+	}
+}
+
+func TestGenerateWorkflow_WriteFileError(t *testing.T) {
+	config := validWorkflowConfig()
+
+	// Create a directory where the file should go so WriteFile fails
+	// (writing to a path that is a directory).
+	dir := t.TempDir()
+	workflowDir := filepath.Join(dir, ".github", "workflows")
+	if err := os.MkdirAll(workflowDir, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	// Create deploy-aws.yml as a directory so WriteFile fails.
+	filePath := filepath.Join(workflowDir, "deploy-aws.yml")
+	if err := os.MkdirAll(filePath, 0o755); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	_, err := GenerateWorkflow(config, dir)
+	if err == nil {
+		t.Fatal("expected error when file write fails")
+	}
+	if !strings.Contains(err.Error(), "writing workflow file") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "writing workflow file")
+	}
+}
+
 func TestGenerateWorkflow_MissingRequiredConfig(t *testing.T) {
 	tests := []struct {
 		name   string

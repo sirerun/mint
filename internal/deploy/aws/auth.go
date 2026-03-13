@@ -9,6 +9,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
+// loadAWSConfig is a package-level variable for testing the config loading path.
+var loadAWSConfig = config.LoadDefaultConfig
+
+// newSTSClient is a package-level variable for testing the STS client creation path.
+var newSTSClient = func(cfg aws.Config) STSClient {
+	return sts.NewFromConfig(cfg)
+}
+
 // Credentials wraps resolved AWS configuration.
 type Credentials struct {
 	Config    aws.Config
@@ -28,13 +36,13 @@ func Authenticate(ctx context.Context, region string, stsClient STSClient) (*Cre
 		return nil, fmt.Errorf("AWS region is required. Use --region flag or set AWS_REGION")
 	}
 
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+	cfg, err := loadAWSConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("AWS credentials not found. Configure credentials via environment variables, ~/.aws/credentials, or IAM role: %w", err)
 	}
 
 	if stsClient == nil {
-		stsClient = sts.NewFromConfig(cfg)
+		stsClient = newSTSClient(cfg)
 	}
 
 	identity, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})

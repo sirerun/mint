@@ -11,43 +11,26 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
-// IAMAdapter implements IAMClient using the AWS SDK v2.
+// jsonMarshal is a package-level variable so tests can override it to simulate
+// json.Marshal errors on otherwise-static data.
+var jsonMarshal = json.Marshal
+
+// iamAPI abstracts the AWS IAM SDK methods used by IAMAdapter.
+type iamAPI interface {
+	GetRole(ctx context.Context, input *iam.GetRoleInput, optFns ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	CreateRole(ctx context.Context, input *iam.CreateRoleInput, optFns ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
+	AttachRolePolicy(ctx context.Context, input *iam.AttachRolePolicyInput, optFns ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
+	GetOpenIDConnectProvider(ctx context.Context, input *iam.GetOpenIDConnectProviderInput, optFns ...func(*iam.Options)) (*iam.GetOpenIDConnectProviderOutput, error)
+	CreateOpenIDConnectProvider(ctx context.Context, input *iam.CreateOpenIDConnectProviderInput, optFns ...func(*iam.Options)) (*iam.CreateOpenIDConnectProviderOutput, error)
+}
+
+// IAMAdapter implements IAMClient and OIDCClient using the AWS SDK v2.
 type IAMAdapter struct {
-	client *iam.Client
+	client iamAPI
 }
 
-var (
-	_ IAMClient  = (*IAMAdapter)(nil)
-	_ OIDCClient = (*IAMAdapter)(nil)
-)
-
-// GetOpenIDConnectProvider checks if an OIDC provider exists by ARN.
-func (a *IAMAdapter) GetOpenIDConnectProvider(ctx context.Context, arn string) error {
-	_, err := a.client.GetOpenIDConnectProvider(ctx, &iam.GetOpenIDConnectProviderInput{
-		OpenIDConnectProviderArn: &arn,
-	})
-	if err != nil {
-		var notFound *types.NoSuchEntityException
-		if errors.As(err, &notFound) {
-			return ErrOIDCProviderNotFound
-		}
-		return err
-	}
-	return nil
-}
-
-// CreateOpenIDConnectProvider creates an OIDC identity provider.
-func (a *IAMAdapter) CreateOpenIDConnectProvider(ctx context.Context, url string, thumbprints []string) (string, error) {
-	out, err := a.client.CreateOpenIDConnectProvider(ctx, &iam.CreateOpenIDConnectProviderInput{
-		Url:            &url,
-		ThumbprintList: thumbprints,
-		ClientIDList:   []string{"sts.amazonaws.com"},
-	})
-	if err != nil {
-		return "", err
-	}
-	return derefStr(out.OpenIDConnectProviderArn), nil
-}
+var _ IAMClient = (*IAMAdapter)(nil)
+var _ OIDCClient = (*IAMAdapter)(nil)
 
 // NewIAMAdapter creates a new adapter backed by the AWS IAM SDK client.
 func NewIAMAdapter(cfg aws.Config) *IAMAdapter {
@@ -95,6 +78,36 @@ func (a *IAMAdapter) AttachRolePolicy(ctx context.Context, roleName, policyARN s
 		PolicyArn: &policyARN,
 	})
 	return err
+}
+
+// GetOpenIDConnectProvider checks if an OIDC provider exists by ARN.
+// Returns ErrOIDCProviderNotFound if it does not exist.
+func (a *IAMAdapter) GetOpenIDConnectProvider(ctx context.Context, arn string) error {
+	_, err := a.client.GetOpenIDConnectProvider(ctx, &iam.GetOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: &arn,
+	})
+	if err != nil {
+		var notFound *types.NoSuchEntityException
+		if errors.As(err, &notFound) {
+			return ErrOIDCProviderNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+// CreateOpenIDConnectProvider creates an OIDC identity provider.
+// Returns the ARN of the created provider.
+func (a *IAMAdapter) CreateOpenIDConnectProvider(ctx context.Context, url string, thumbprints []string) (string, error) {
+	out, err := a.client.CreateOpenIDConnectProvider(ctx, &iam.CreateOpenIDConnectProviderInput{
+		Url:            &url,
+		ThumbprintList: thumbprints,
+		ClientIDList:   []string{"sts.amazonaws.com"},
+	})
+	if err != nil {
+		return "", err
+	}
+	return derefStr(out.OpenIDConnectProviderArn), nil
 }
 
 // TaskRoles holds the ARNs for ECS task execution and task roles.
@@ -167,7 +180,7 @@ func ecsTrustPolicy() (string, error) {
 			},
 		},
 	}
-	b, err := json.Marshal(policy)
+	b, err := jsonMarshal(policy)
 	if err != nil {
 		return "", err
 	}

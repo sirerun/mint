@@ -12,6 +12,9 @@ import (
 // ErrOIDCProviderNotFound indicates that an OIDC provider was not found.
 var ErrOIDCProviderNotFound = errors.New("oidc: provider not found")
 
+// oidcJSONMarshal is a package-level variable for testing the JSON marshal error path.
+var oidcJSONMarshal = json.Marshal
+
 // OIDCClient abstracts AWS IAM OIDC provider operations.
 type OIDCClient interface {
 	// GetOpenIDConnectProvider checks if an OIDC provider exists by ARN.
@@ -85,7 +88,7 @@ func EnsureOIDCProvider(ctx context.Context, client OIDCClient, config OIDCConfi
 		}
 		providerARN = createdARN
 
-		fmt.Fprintf(stderr, "Created OIDC provider: %s\n", providerARN)
+		_, _ = fmt.Fprintf(stderr, "Created OIDC provider: %s\n", providerARN)
 	}
 
 	// Ensure IAM role with trust policy for the repo.
@@ -149,7 +152,7 @@ func ensureOIDCRole(ctx context.Context, client OIDCClient, input *CreateRoleInp
 	if err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(stderr, "Created IAM role: %s\n", role.RoleName)
+	_, _ = fmt.Fprintf(stderr, "Created IAM role: %s\n", role.RoleName)
 	return role, nil
 }
 
@@ -177,7 +180,7 @@ func githubOIDCTrustPolicy(providerARN, repoOwner, repoName string) (string, err
 			},
 		},
 	}
-	b, err := json.Marshal(policy)
+	b, err := oidcJSONMarshal(policy)
 	if err != nil {
 		return "", err
 	}

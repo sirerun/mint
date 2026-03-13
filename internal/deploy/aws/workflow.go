@@ -23,7 +23,10 @@ type WorkflowResult struct {
 	Content  string // the YAML content
 }
 
-const workflowTemplate = `name: Deploy to AWS ECS Fargate
+// workflowTemplateStr is a variable to allow tests to inject invalid templates.
+var workflowTemplateStr = workflowTemplateConst
+
+const workflowTemplateConst = `name: Deploy to AWS ECS Fargate
 on:
   push:
     branches: [main]
@@ -58,7 +61,7 @@ func GenerateWorkflow(config WorkflowConfig, outputDir string) (*WorkflowResult,
 		return nil, err
 	}
 
-	tmpl, err := template.New("workflow").Parse(workflowTemplate)
+	tmpl, err := template.New("workflow").Parse(workflowTemplateStr)
 	if err != nil {
 		return nil, fmt.Errorf("parsing workflow template: %w", err)
 	}

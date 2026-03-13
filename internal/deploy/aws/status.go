@@ -7,6 +7,9 @@ import (
 	"strings"
 )
 
+// jsonMarshalIndent is a variable to allow tests to inject marshal failures.
+var jsonMarshalIndent = json.MarshalIndent
+
 // StatusClient abstracts operations needed for the AWS status command.
 type StatusClient interface {
 	DescribeService(ctx context.Context, cluster, serviceName string) (*ServiceStatus, error)
@@ -90,7 +93,7 @@ func GetStatus(ctx context.Context, client StatusClient, cluster, serviceName, t
 // FormatStatus formats a StatusResult as either JSON or human-readable text.
 func FormatStatus(result *StatusResult, jsonOutput bool) string {
 	if jsonOutput {
-		data, err := json.MarshalIndent(result, "", "  ")
+		data, err := jsonMarshalIndent(result, "", "  ")
 		if err != nil {
 			return fmt.Sprintf(`{"error": %q}`, err.Error())
 		}

@@ -288,3 +288,137 @@ func TestHealthBridge_Check_Unhealthy(t *testing.T) {
 		t.Fatal("expected unhealthy")
 	}
 }
+
+// --- buildBridge tests ---
+
+type bridgeMockCodeBuildClient struct {
+	createProjectFn  func(ctx context.Context, input *CreateProjectInput) error
+	startBuildFn     func(ctx context.Context, input *StartBuildInput) (*StartBuildOutput, error)
+	batchGetBuildsFn func(ctx context.Context, buildIDs []string) ([]Build, error)
+}
+
+func (m *bridgeMockCodeBuildClient) CreateProject(ctx context.Context, input *CreateProjectInput) error {
+	return m.createProjectFn(ctx, input)
+}
+func (m *bridgeMockCodeBuildClient) StartBuild(ctx context.Context, input *StartBuildInput) (*StartBuildOutput, error) {
+	return m.startBuildFn(ctx, input)
+}
+func (m *bridgeMockCodeBuildClient) BatchGetBuilds(ctx context.Context, buildIDs []string) ([]Build, error) {
+	return m.batchGetBuildsFn(ctx, buildIDs)
+}
+
+func TestBuildBridge_BuildImage_Success(t *testing.T) {
+	client := &bridgeMockCodeBuildClient{
+		createProjectFn: func(_ context.Context, _ *CreateProjectInput) error {
+			return nil
+		},
+		startBuildFn: func(_ context.Context, _ *StartBuildInput) (*StartBuildOutput, error) {
+			return &StartBuildOutput{BuildID: "build-ok"}, nil
+		},
+		batchGetBuildsFn: func(_ context.Context, ids []string) ([]Build, error) {
+			return []Build{{
+				ID:       ids[0],
+				Status:   "SUCCEEDED",
+				ImageURI: "123456.dkr.ecr.us-east-1.amazonaws.com/repo:abc123",
+			}}, nil
+		},
+	}
+
+	bridge := NewBuildBridge(client, "my-project")
+	uri, err := bridge.BuildImage(context.Background(), "/src", "img:latest")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if uri != "123456.dkr.ecr.us-east-1.amazonaws.com/repo:abc123" {
+		t.Fatalf("unexpected image URI: %s", uri)
+	}
+}
+
+func TestBuildBridge_BuildImage_Error(t *testing.T) {
+	client := &bridgeMockCodeBuildClient{
+		createProjectFn: func(_ context.Context, _ *CreateProjectInput) error {
+			return errors.New("access denied")
+		},
+		startBuildFn: func(_ context.Context, _ *StartBuildInput) (*StartBuildOutput, error) {
+			return nil, nil
+		},
+		batchGetBuildsFn: func(_ context.Context, _ []string) ([]Build, error) {
+			return nil, nil
+		},
+	}
+
+	bridge := NewBuildBridge(client, "my-project")
+	_, err := bridge.BuildImage(context.Background(), "/src", "img:latest")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestNewBuildBridge(t *testing.T) {
+	client := &bridgeMockCodeBuildClient{}
+	bridge := NewBuildBridge(client, "proj")
+	if bridge == nil {
+		t.Fatal("expected non-nil bridge")
+	}
+}
+
+// --- ecsBridge error path ---
+
+func TestECSBridge_EnsureService_Error(t *testing.T) {
+	client := &bridgeMockECSClient{
+		createClusterFunc: func(_ context.Context, _ string) (*Cluster, error) {
+			return nil, errors.New("cluster creation failed")
+		},
+	}
+
+	bridge := NewECSBridge(client)
+	_, err := bridge.EnsureService(context.Background(), DeployServiceOptions{
+		ServiceName: "my-svc",
+		ClusterARN:  "test-cluster",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+// --- healthBridge empty body and error paths ---
+
+func TestHealthBridge_Check_EmptyBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Write no body — result.Body will be empty.
+	}))
+	defer srv.Close()
+
+	checker := &HealthChecker{
+		HTTPClient: srv.Client(),
+		MaxRetries: 1,
+	}
+	bridge := NewHealthBridge(checker)
+	result, err := bridge.Check(context.Background(), srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result.Healthy {
+		t.Fatal("expected healthy")
+	}
+	// With empty body, the message should fall through to the status format.
+	want := "status 200 after 1 attempts"
+	if result.Message != want {
+		t.Fatalf("expected message %q, got %q", want, result.Message)
+	}
+}
+
+func TestHealthBridge_Check_Error(t *testing.T) {
+	// Use a checker that points to an unreachable server, then cancel context
+	// so the HealthChecker.Check returns an error.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	checker := NewHealthChecker(&http.Client{})
+	bridge := NewHealthBridge(checker)
+	_, err := bridge.Check(ctx, "http://127.0.0.1:1")
+	if err == nil {
+		t.Fatal("expected error from cancelled context")
+	}
+}

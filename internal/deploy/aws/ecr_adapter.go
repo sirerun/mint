@@ -13,9 +13,15 @@ import (
 // DefaultRepoName is the default ECR repository name.
 const DefaultRepoName = "mint-mcp-servers"
 
+// ecrAPI abstracts the AWS ECR SDK methods used by ECRAdapter.
+type ecrAPI interface {
+	DescribeRepositories(ctx context.Context, params *ecr.DescribeRepositoriesInput, optFns ...func(*ecr.Options)) (*ecr.DescribeRepositoriesOutput, error)
+	CreateRepository(ctx context.Context, params *ecr.CreateRepositoryInput, optFns ...func(*ecr.Options)) (*ecr.CreateRepositoryOutput, error)
+}
+
 // ECRAdapter implements ECRClient using the AWS SDK v2.
 type ECRAdapter struct {
-	client *ecr.Client
+	client ecrAPI
 }
 
 var _ ECRClient = (*ECRAdapter)(nil)
