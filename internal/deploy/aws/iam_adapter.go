@@ -16,7 +16,38 @@ type IAMAdapter struct {
 	client *iam.Client
 }
 
-var _ IAMClient = (*IAMAdapter)(nil)
+var (
+	_ IAMClient  = (*IAMAdapter)(nil)
+	_ OIDCClient = (*IAMAdapter)(nil)
+)
+
+// GetOpenIDConnectProvider checks if an OIDC provider exists by ARN.
+func (a *IAMAdapter) GetOpenIDConnectProvider(ctx context.Context, arn string) error {
+	_, err := a.client.GetOpenIDConnectProvider(ctx, &iam.GetOpenIDConnectProviderInput{
+		OpenIDConnectProviderArn: &arn,
+	})
+	if err != nil {
+		var notFound *types.NoSuchEntityException
+		if errors.As(err, &notFound) {
+			return ErrOIDCProviderNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+// CreateOpenIDConnectProvider creates an OIDC identity provider.
+func (a *IAMAdapter) CreateOpenIDConnectProvider(ctx context.Context, url string, thumbprints []string) (string, error) {
+	out, err := a.client.CreateOpenIDConnectProvider(ctx, &iam.CreateOpenIDConnectProviderInput{
+		Url:            &url,
+		ThumbprintList: thumbprints,
+		ClientIDList:   []string{"sts.amazonaws.com"},
+	})
+	if err != nil {
+		return "", err
+	}
+	return derefStr(out.OpenIDConnectProviderArn), nil
+}
 
 // NewIAMAdapter creates a new adapter backed by the AWS IAM SDK client.
 func NewIAMAdapter(cfg aws.Config) *IAMAdapter {

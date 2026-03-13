@@ -155,3 +155,7 @@ func TestEnsureTaskRoles_AttachPolicyFails(t *testing.T) {
 func TestIAMAdapterInterface(t *testing.T) {
 	var _ IAMClient = (*IAMAdapter)(nil)
 }
+
+func TestIAMAdapterOIDCInterface(t *testing.T) {
+	var _ OIDCClient = (*IAMAdapter)(nil)
+}
