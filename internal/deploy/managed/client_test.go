@@ -39,7 +39,7 @@ func TestDeploy(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(want)
+		_ = json.NewEncoder(w).Encode(want)
 	}))
 	defer srv.Close()
 
@@ -66,7 +66,7 @@ func TestDeploy(t *testing.T) {
 func TestDeployHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("internal error"))
+		_, _ = w.Write([]byte("internal error"))
 	}))
 	defer srv.Close()
 
@@ -98,7 +98,7 @@ func TestStatus(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(want)
+		_ = json.NewEncoder(w).Encode(want)
 	}))
 	defer srv.Close()
 
@@ -124,7 +124,7 @@ func TestStatus(t *testing.T) {
 func TestStatusHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("not found"))
+		_, _ = w.Write([]byte("not found"))
 	}))
 	defer srv.Close()
 
@@ -156,7 +156,7 @@ func TestDelete(t *testing.T) {
 func TestDeleteHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("forbidden"))
+		_, _ = w.Write([]byte("forbidden"))
 	}))
 	defer srv.Close()
 
@@ -181,7 +181,7 @@ func TestListServers(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(want)
+		_ = json.NewEncoder(w).Encode(want)
 	}))
 	defer srv.Close()
 
@@ -204,7 +204,7 @@ func TestListServers(t *testing.T) {
 func TestListServersEmpty(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("[]"))
+		_, _ = w.Write([]byte("[]"))
 	}))
 	defer srv.Close()
 
@@ -229,7 +229,7 @@ func TestNewClientDefaultBaseURL(t *testing.T) {
 func TestDeployInvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("not-json"))
+		_, _ = w.Write([]byte("not-json"))
 	}))
 	defer srv.Close()
 
@@ -242,7 +242,7 @@ func TestDeployInvalidJSON(t *testing.T) {
 
 func TestStatusInvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("{{bad"))
+		_, _ = w.Write([]byte("{{bad"))
 	}))
 	defer srv.Close()
 
@@ -255,7 +255,7 @@ func TestStatusInvalidJSON(t *testing.T) {
 
 func TestListServersInvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte("not-json"))
+		_, _ = w.Write([]byte("not-json"))
 	}))
 	defer srv.Close()
 
@@ -269,7 +269,7 @@ func TestListServersInvalidJSON(t *testing.T) {
 func TestListServersHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("unavailable"))
+		_, _ = w.Write([]byte("unavailable"))
 	}))
 	defer srv.Close()
 

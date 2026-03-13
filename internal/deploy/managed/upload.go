@@ -17,10 +17,10 @@ import (
 // CreateSourceTarball creates a gzipped tarball of the source directory and writes it to w.
 func CreateSourceTarball(sourceDir string, w io.Writer) error {
 	gw := gzip.NewWriter(w)
-	defer gw.Close()
+	defer func() { _ = gw.Close() }()
 
 	tw := tar.NewWriter(gw)
-	defer tw.Close()
+	defer func() { _ = tw.Close() }()
 
 	sourceDir = filepath.Clean(sourceDir)
 
@@ -66,7 +66,7 @@ func CreateSourceTarball(sourceDir string, w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		_, err = io.Copy(tw, f)
 		return err
@@ -83,7 +83,7 @@ func uploadSource(ctx context.Context, client *httpClient, tarball io.Reader, si
 	// Write multipart form in a goroutine since it writes to a pipe.
 	errCh := make(chan error, 1)
 	go func() {
-		defer pw.Close()
+		defer func() { _ = pw.Close() }()
 		part, err := writer.CreateFormFile("source", "source.tar.gz")
 		if err != nil {
 			errCh <- err
@@ -101,7 +101,7 @@ func uploadSource(ctx context.Context, client *httpClient, tarball io.Reader, si
 				}
 				written += int64(n)
 				if size > 0 {
-					fmt.Fprintf(stderr, "\ruploading: %d / %d bytes", written, size)
+					_, _ = fmt.Fprintf(stderr, "\ruploading: %d / %d bytes", written, size)
 				}
 			}
 			if readErr == io.EOF {
@@ -113,7 +113,7 @@ func uploadSource(ctx context.Context, client *httpClient, tarball io.Reader, si
 			}
 		}
 		if size > 0 {
-			fmt.Fprintln(stderr)
+			_, _ = fmt.Fprintln(stderr)
 		}
 
 		errCh <- writer.Close()
@@ -130,7 +130,7 @@ func uploadSource(ctx context.Context, client *httpClient, tarball io.Reader, si
 	if err != nil {
 		return "", fmt.Errorf("upload request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if writeErr := <-errCh; writeErr != nil {
 		return "", fmt.Errorf("writing multipart: %w", writeErr)

@@ -38,7 +38,7 @@ func TestCreateSourceTarball(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gzip.NewReader: %v", err)
 	}
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 
 	tr := tar.NewReader(gr)
 	var names []string
@@ -95,7 +95,7 @@ func TestCreateSourceTarballEmptyDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("gzip.NewReader: %v", err)
 	}
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 
 	tr := tar.NewReader(gr)
 	_, err = tr.Next()
@@ -132,7 +132,7 @@ func TestUploadSource(t *testing.T) {
 		if err != nil {
 			t.Fatalf("FormFile: %v", err)
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		data, err := io.ReadAll(file)
 		if err != nil {
@@ -143,7 +143,7 @@ func TestUploadSource(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("src-abc123"))
+		_, _ = w.Write([]byte("src-abc123"))
 	}))
 	defer srv.Close()
 
@@ -170,7 +170,7 @@ func TestUploadSource(t *testing.T) {
 func TestUploadSourceHTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("bad request"))
+		_, _ = w.Write([]byte("bad request"))
 	}))
 	defer srv.Close()
 
@@ -190,7 +190,7 @@ func TestUploadSourceHTTPError(t *testing.T) {
 func TestUploadSourceZeroSize(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("src-empty"))
+		_, _ = w.Write([]byte("src-empty"))
 	}))
 	defer srv.Close()
 
