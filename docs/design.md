@@ -52,16 +52,19 @@ testdata/           Test OpenAPI specs
 - Write generated files to output directory
 - Generated files: main.go, server.go, tools.go, client.go, types.go, go.mod, Dockerfile, README.md
 
-### Deploy Architecture (Scaffolded)
+### Deploy Architecture
 
-The deploy feature uses an interface-based architecture:
+The deploy feature uses an interface-based dependency injection architecture. All layers are fully implemented:
 
-- `internal/deploy/config.go` -- DeployConfig struct, validation, flag parsing. COMPLETE.
-- `internal/deploy/gcp/deploy.go` -- Deployer orchestrator with 8 pluggable interfaces. COMPLETE.
-- `internal/deploy/gcp/*.go` -- Interface definitions and business logic for each concern (registry, build, cloudrun, iam, secrets, sourcerepo, sourcepush, status, rollback, canary, healthcheck, workloadidentity, labels, workflow). COMPLETE.
-- `cmd/mint/deploy.go` -- CLI flag parsing and subcommand dispatch. STUBBED (prints "not yet implemented").
+- `internal/deploy/config.go` -- DeployConfig struct, validation, flag parsing.
+- `internal/deploy/gcp/deploy.go` -- Deployer orchestrator with 8 pluggable interfaces.
+- `internal/deploy/gcp/*.go` -- Interface definitions and business logic for each concern (registry, build, cloudrun, iam, secrets, sourcerepo, sourcepush, status, rollback, canary, healthcheck, workloadidentity, labels, workflow).
+- `internal/deploy/gcp/*_adapter.go` -- Concrete GCP SDK adapter implementations for all interfaces.
+- `internal/deploy/gcp/adapters.go` -- Bridge adapter layer connecting low-level SDK client interfaces to high-level Deployer orchestrator interfaces.
+- `internal/deploy/gcp/apis.go` -- GCP API enablement check (verifies required APIs are enabled before deploy).
+- `cmd/mint/deploy.go` -- CLI flag parsing, adapter instantiation, and orchestration calls for `gcp`, `status`, and `rollback` subcommands.
 
-**What is missing:** Concrete GCP SDK adapter implementations that satisfy the interfaces. The CLI entry point does not instantiate any GCP clients or call the orchestrator.
+**Adapter architecture:** CloudRunAdapter is split into 4 sub-adapter structs (CloudRunServiceAdapter, CloudRunStatusAdapter, CloudRunRevisionAdapter, CloudRunTrafficAdapter) because Go does not allow methods with the same name but different return types on one struct. See docs/adr/005-gcp-sdk-adapter-pattern.md.
 
 ### Key Dependencies
 
@@ -69,7 +72,14 @@ The deploy feature uses an interface-based architecture:
 |-----------|---------|---------|
 | pb33f/libopenapi | OpenAPI parsing | mint binary |
 | mark3labs/mcp-go | Go MCP SDK | Generated servers only |
-| cloud.google.com/go/artifactregistry | AR protobuf types | mint binary (type defs only) |
+| cloud.google.com/go/artifactregistry | Artifact Registry SDK | mint binary (adapter) |
+| cloud.google.com/go/run/apiv2 | Cloud Run Admin API v2 | mint binary (adapter) |
+| cloud.google.com/go/cloudbuild/apiv1/v2 | Cloud Build API | mint binary (adapter) |
+| cloud.google.com/go/secretmanager/apiv1 | Secret Manager API | mint binary (adapter) |
+| cloud.google.com/go/iam/admin/apiv1 | IAM Admin API | mint binary (adapter) |
+| cloud.google.com/go/storage | Cloud Storage (source upload) | mint binary (build adapter) |
+| google.golang.org/api/serviceusage/v1 | Service Usage API | mint binary (API check) |
+| google.golang.org/api/sourcerepo/v1 | Source Repos REST API (deprecated) | mint binary (adapter) |
 
 ## Conventions
 
@@ -83,13 +93,43 @@ The deploy feature uses an interface-based architecture:
 - .gitignore uses `/mint` not `mint` to avoid matching cmd/mint directory.
 - Examples dir has its own go.mod -- excluded from lint hook.
 
+### Definition of Done
+
+A task is done when:
+1. Code compiles with zero warnings.
+2. All new code has unit tests that pass.
+3. `go test ./...` passes with no regressions.
+4. `golangci-lint run` passes with no new findings.
+5. `gofmt -s` produces no changes.
+6. Adapter satisfies its interface (compile-time `var _ Interface = (*Adapter)(nil)` check).
+
+### Commit Policy
+
+- Always add tests when adding new implementation code.
+- Always run relevant linters and formatters after code changes.
+- Never commit files from different directories in the same commit.
+- Never allow changes to pile up. Make many small logical commits.
+- Each commit should represent one logical change and have a clear message.
+
+### Deploy IAM Roles
+
+Required IAM roles for the deployer service account:
+- `roles/run.admin`
+- `roles/artifactregistry.admin`
+- `roles/cloudbuild.builds.editor`
+- `roles/secretmanager.admin`
+- `roles/iam.serviceAccountAdmin`
+
 ## Key File Paths
 
 | Path | Description |
 |------|-------------|
 | cmd/mint/main.go | CLI entry point and subcommand dispatch |
 | cmd/mint/mcp.go | `mint mcp generate` command |
-| cmd/mint/deploy.go | Deploy CLI dispatch (gcp, status, rollback) |
+| cmd/mint/deploy.go | Deploy CLI dispatch (gcp, status, rollback) -- fully wired |
+| internal/deploy/gcp/adapters.go | Bridge adapters (8 types) connecting SDK clients to Deployer |
+| internal/deploy/gcp/*_adapter.go | GCP SDK adapter implementations (registry, build, cloudrun, iam, secrets, sourcerepo, git) |
+| internal/deploy/gcp/apis.go | GCP API enablement check |
 | internal/mcpgen/model.go | MCP model structs (MCPServer, MCPTool, MCPToolParam, MCPAuth) |
 | internal/mcpgen/converter.go | OpenAPI-to-MCP model converter |
 | internal/mcpgen/golang/generate.go | Go code generation orchestrator |
@@ -109,6 +149,9 @@ The deploy feature uses an interface-based architecture:
 | M4: MCP Advanced + CI/CD | 2026-03 | Auth, SSE, filtering, GitHub Actions |
 | M5: Ship It | 2026-03 | README, examples, v0.1.0 release |
 | M6-M10: Deploy Scaffold | 2026-03 | Interface design, business logic, mock tests for deploy feature |
+| M11: Adapters Complete | 2026-03 | All 8 GCP SDK adapter files compile, interface checks pass |
+| M12: CLI Wired | 2026-03 | deploy gcp, status, rollback execute real GCP calls |
+| M13: Production Ready | 2026-03 | Manual e2e validation passes with Twitter API v2 spec |
 
 ## References
 
