@@ -88,37 +88,37 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T30.1
   - AC: Interfaces defined: ACRClient (Azure Container Registry), ContainerAppClient, ManagedEnvironmentClient, KeyVaultClient, RBACClient. Each in a separate file.
 
-- [ ] T30.3 Implement Deployer.Deploy orchestration logic  Owner: TBD  Est: 1.5h
+- [x] T30.3 Implement Deployer.Deploy orchestration logic  Owner: TBD  Est: 1.5h
   - Dependencies: T30.1, T30.2
   - AC: Deploy method calls interfaces in sequence: ensure ACR, build image, ensure Container Apps Environment, create/update Container App, configure RBAC, inject secrets, run health check. Returns DeployOutput with URL.
 
-- [ ] T30.4 Add unit tests for Deployer orchestration  Owner: TBD  Est: 1h
+- [x] T30.4 Add unit tests for Deployer orchestration  Owner: TBD  Est: 1h
   - Dependencies: T30.3
   - AC: Table-driven tests covering happy path, each step failing, optional steps. All tests pass with -race.
 
-- [ ] T30.5 Run golangci-lint on internal/deploy/azure/  Owner: TBD  Est: 15m
+- [x] T30.5 Run golangci-lint on internal/deploy/azure/  Owner: TBD  Est: 15m
   - Dependencies: T30.4
   - AC: Zero lint findings.
 
 #### Epic E31: Azure SDK Adapters
 
-- [ ] T31.1 ACR adapter (`acr_adapter.go`)  Owner: TBD  Est: 1h
+- [x] T31.1 ACR adapter (`acr_adapter.go`)  Owner: TBD  Est: 1h
   - Dependencies: T30.2
   - AC: Implements ACRClient. Creates ACR repository if not exists, returns login server and image URI. Extracted SDK interface for testing.
 
-- [ ] T31.2 Container App adapter (`containerapp_adapter.go`)  Owner: TBD  Est: 1.5h
+- [x] T31.2 Container App adapter (`containerapp_adapter.go`)  Owner: TBD  Est: 1.5h
   - Dependencies: T30.2
   - AC: Implements ContainerAppClient. Creates/updates Container App with revision, configures ingress, sets resource limits (CPU, memory). Extracted SDK interface for testing.
 
-- [ ] T31.3 Managed Environment adapter (`environment_adapter.go`)  Owner: TBD  Est: 1h
+- [x] T31.3 Managed Environment adapter (`environment_adapter.go`)  Owner: TBD  Est: 1h
   - Dependencies: T30.2
   - AC: Implements ManagedEnvironmentClient. Creates Container Apps Environment if not exists. Configures log analytics workspace.
 
-- [ ] T31.4 Key Vault adapter (`keyvault_adapter.go`)  Owner: TBD  Est: 1h
+- [x] T31.4 Key Vault adapter (`keyvault_adapter.go`)  Owner: TBD  Est: 1h
   - Dependencies: T30.2
   - AC: Implements KeyVaultClient. Creates Key Vault if not exists, stores secrets, returns secret URIs for container app reference.
 
-- [ ] T31.5 RBAC adapter (`rbac_adapter.go`)  Owner: TBD  Est: 1h
+- [x] T31.5 RBAC adapter (`rbac_adapter.go`)  Owner: TBD  Est: 1h
   - Dependencies: T30.2
   - AC: Implements RBACClient. Assigns AcrPull role to Container App managed identity. Configures Key Vault access policies.
 
@@ -126,29 +126,29 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: none
   - AC: Resolves Azure credentials via SDK default chain (env, CLI, managed identity). Returns subscription ID, resource group, and tenant ID.
 
-- [ ] T31.7 Bridge adapter layer (`adapters.go`)  Owner: TBD  Est: 1h
+- [x] T31.7 Bridge adapter layer (`adapters.go`)  Owner: TBD  Est: 1h
   - Dependencies: T31.1 through T31.6
   - AC: Bridge structs connect SDK client interfaces to Deployer orchestrator interfaces.
 
-- [ ] T31.8 Unit tests for all adapters  Owner: TBD  Est: 2h
+- [x] T31.8 Unit tests for all adapters  Owner: TBD  Est: 2h
   - Dependencies: T31.1 through T31.7
   - AC: 100% coverage on business logic. Extracted SDK interfaces with mock implementations.
 
-- [ ] T31.9 Run golangci-lint on all adapter files  Owner: TBD  Est: 15m
+- [x] T31.9 Run golangci-lint on all adapter files  Owner: TBD  Est: 15m
   - Dependencies: T31.8
   - AC: Zero lint findings.
 
 #### Epic E32: Azure Status, Rollback, and Canary
 
-- [ ] T32.1 Status command (`status.go`)  Owner: TBD  Est: 1h
+- [x] T32.1 Status command (`status.go`)  Owner: TBD  Est: 1h
   - Dependencies: T30.2
   - AC: StatusClient interface defined. GetStatus retrieves Container App info (revisions, traffic weights, replica counts). FormatStatus outputs human-readable and JSON.
 
-- [ ] T32.2 Rollback command (`rollback.go`)  Owner: TBD  Est: 1h
+- [x] T32.2 Rollback command (`rollback.go`)  Owner: TBD  Est: 1h
   - Dependencies: T30.2
   - AC: Lists Container App revisions, shifts 100% traffic to previous revision.
 
-- [ ] T32.3 Canary traffic splitting (`canary.go`)  Owner: TBD  Est: 1h
+- [x] T32.3 Canary traffic splitting (`canary.go`)  Owner: TBD  Est: 1h
   - Dependencies: T31.2
   - AC: Creates new revision with canary traffic percentage. PromoteCanary shifts 100% to canary revision. Uses Container Apps native traffic splitting.
 
@@ -156,11 +156,11 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: none
   - AC: HTTP health probe with exponential backoff (same pattern as GCP/AWS).
 
-- [ ] T32.5 Unit tests for E32  Owner: TBD  Est: 1.5h
+- [x] T32.5 Unit tests for E32  Owner: TBD  Est: 1.5h
   - Dependencies: T32.1 through T32.4
   - AC: 100% coverage. Table-driven tests with mocks.
 
-- [ ] T32.6 Run golangci-lint on E32 files  Owner: TBD  Est: 15m
+- [x] T32.6 Run golangci-lint on E32 files  Owner: TBD  Est: 15m
   - Dependencies: T32.5
   - AC: Zero lint findings.
 
@@ -213,11 +213,11 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T35.1
   - AC: Creates tar.gz of source directory, uploads via multipart POST to hosting API. Shows upload progress on stderr.
 
-- [ ] T35.3 Implement deploy command with polling  Owner: TBD  Est: 1h
+- [x] T35.3 Implement deploy command with polling  Owner: TBD  Est: 1h
   - Dependencies: T35.2
   - AC: Calls deploy endpoint, polls for build/deploy status, prints progress, returns live URL on success.
 
-- [ ] T35.4 Implement status, list, and delete commands  Owner: TBD  Est: 1h
+- [x] T35.4 Implement status, list, and delete commands  Owner: TBD  Est: 1h
   - Dependencies: T35.1
   - AC: `mint deploy managed status --service foo` shows service info. `mint deploy managed list` shows all servers. `mint deploy managed delete --service foo` removes server.
 
@@ -225,11 +225,11 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T35.1
   - AC: Reads SIRE_API_TOKEN from env or `~/.config/mint/credentials`. `mint login` prompts for token and saves it. Clear error when token is missing.
 
-- [ ] T35.6 Unit tests for managed hosting client  Owner: TBD  Est: 1.5h
+- [x] T35.6 Unit tests for managed hosting client  Owner: TBD  Est: 1.5h
   - Dependencies: T35.1 through T35.5
   - AC: 100% coverage. Uses httptest.Server for API mock.
 
-- [ ] T35.7 Run golangci-lint  Owner: TBD  Est: 15m
+- [x] T35.7 Run golangci-lint  Owner: TBD  Est: 15m
   - Dependencies: T35.6
   - AC: Zero lint findings.
 
@@ -268,19 +268,19 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T37.2
   - AC: `mint registry search <query>` fuzzy-matches name, description, and tags. Outputs table with name, description, auth type. Supports `--format json`.
 
-- [ ] T37.4 Implement list command  Owner: TBD  Est: 30m
+- [x] T37.4 Implement list command  Owner: TBD  Est: 30m
   - Dependencies: T37.2
   - AC: `mint registry list` shows all entries. Supports `--tags <tag>` filter. Supports `--format json`.
 
-- [ ] T37.5 Implement install command  Owner: TBD  Est: 1.5h
+- [x] T37.5 Implement install command  Owner: TBD  Est: 1.5h
   - Dependencies: T37.2
   - AC: `mint registry install <name>` fetches spec URL from index, runs `mint mcp generate` with appropriate flags (auth-env, output dir). Prints post-install instructions (set env vars, build, run).
 
-- [ ] T37.6 Unit tests for registry package  Owner: TBD  Est: 1.5h
+- [x] T37.6 Unit tests for registry package  Owner: TBD  Est: 1.5h
   - Dependencies: T37.1 through T37.5
   - AC: 100% coverage. Uses httptest.Server for index fetch. Tests search ranking, cache expiry, offline fallback.
 
-- [ ] T37.7 Run golangci-lint  Owner: TBD  Est: 15m
+- [x] T37.7 Run golangci-lint  Owner: TBD  Est: 15m
   - Dependencies: T37.6
   - AC: Zero lint findings.
 
