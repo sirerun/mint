@@ -300,15 +300,15 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E39: Seed Registry Index
 
-- [ ] T39.1 Create `sirerun/mcp-registry` repo with index schema  Owner: TBD  Est: 1h
+- [x] T39.1 Create `sirerun/mcp-registry` repo with index schema  Owner: TBD  Est: 1h
   - Dependencies: none
   - AC: Repo exists with registry.json schema, validation CI, and CONTRIBUTING.md for community submissions.
 
-- [ ] T39.2 Curate initial 20 API entries  Owner: TBD  Est: 3h
+- [x] T39.2 Curate initial 20 API entries  Owner: TBD  Est: 3h
   - Dependencies: T39.1
   - AC: 20 entries with verified OpenAPI spec URLs. Mix of categories: social (Twitter, GitHub), payments (Stripe), messaging (Slack, Discord), AI (OpenAI, Anthropic), cloud (AWS, GCP, Azure), dev tools (Jira, Linear, Notion).
 
-- [ ] T39.3 Add CI validation to registry repo  Owner: TBD  Est: 1h
+- [x] T39.3 Add CI validation to registry repo  Owner: TBD  Est: 1h
   - Dependencies: T39.1
   - AC: GitHub Actions workflow validates registry.json schema, checks spec URL reachability, runs `mint mcp generate` against each entry to verify compatibility.
 

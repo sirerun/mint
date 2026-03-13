@@ -45,9 +45,15 @@ Completed 2 tasks: T40.6, T40.7
 - Final lint pass: resolved 5 staticcheck findings, 0 new issues
 - Pre-existing errcheck issues in GCP adapter Close() calls left as-is (cosmetic)
 
+### Wave 6 (1 agent)
+Completed 3 tasks: T39.1, T39.2, T39.3
+
+- Created `sirerun/mcp-registry` public GitHub repo
+- Seeded with 20 API entries (Twitter, GitHub, Stripe, Slack, OpenAI, Anthropic, etc.)
+- Added CI validation workflow (schema check + spec URL reachability)
+
 ### Remaining Tasks (require manual intervention)
 - T29.1-5: E2E validation requires real cloud sandbox credentials (AWS + Azure)
-- T39.1-3: Registry repo seed requires creating `sirerun/mcp-registry` GitHub repo
 
 ### Quality Status
 - All tests pass with `-race` flag
