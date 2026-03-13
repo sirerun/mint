@@ -30,7 +30,7 @@ func TestGenerate(t *testing.T) {
 
 	// Check all expected files exist
 	expectedFiles := []string{
-		"main.go", "server.go", "tools.go", "client.go", "go.mod", "Dockerfile", "README.md",
+		"main.go", "server.go", "tools.go", "client.go", "go.mod", "Dockerfile", "README.md", "cli.go",
 	}
 	for _, f := range expectedFiles {
 		path := filepath.Join(outputDir, f)
@@ -300,6 +300,179 @@ func TestExportName(t *testing.T) {
 				t.Errorf("exportName(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestGenerateCLITemplate(t *testing.T) {
+	result, err := loader.Load("../../../testdata/petstore.yaml")
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+
+	server, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting spec: %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(server, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	// Verify cli.go exists and contains expected function signatures
+	data, err := os.ReadFile(filepath.Join(outputDir, "cli.go"))
+	if err != nil {
+		t.Fatalf("reading cli.go: %v", err)
+	}
+	content := string(data)
+
+	checks := []string{
+		"func (s *Server) RunCLI(args []string) error",
+		"func (s *Server) ListTools(w io.Writer)",
+		"func (s *Server) CallTool(ctx context.Context, name string, args map[string]interface{}, raw bool, w io.Writer) error",
+		"tabwriter.NewWriter",
+		"list_pets",
+	}
+	for _, check := range checks {
+		if !strings.Contains(content, check) {
+			t.Errorf("cli.go missing expected string %q", check)
+		}
+	}
+
+	// Verify main.go contains subcommand dispatch
+	mainData, err := os.ReadFile(filepath.Join(outputDir, "main.go"))
+	if err != nil {
+		t.Fatalf("reading main.go: %v", err)
+	}
+	mainContent := string(mainData)
+
+	mainChecks := []string{
+		`case "tools"`,
+		`case "call"`,
+		"srv.ListTools(os.Stdout)",
+		"srv.RunCLI(os.Args[2:])",
+	}
+	for _, check := range mainChecks {
+		if !strings.Contains(mainContent, check) {
+			t.Errorf("main.go missing expected CLI dispatch string %q", check)
+		}
+	}
+}
+
+func TestGenerateCLIReadme(t *testing.T) {
+	result, err := loader.Load("../../../testdata/petstore.yaml")
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+
+	server, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting spec: %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(server, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(outputDir, "README.md"))
+	if err != nil {
+		t.Fatalf("reading README.md: %v", err)
+	}
+	content := string(data)
+
+	checks := []string{
+		"## CLI Mode",
+		"tools",
+		"call <tool_name> key=value",
+		"--raw",
+	}
+	for _, check := range checks {
+		if !strings.Contains(content, check) {
+			t.Errorf("README.md missing expected CLI section string %q", check)
+		}
+	}
+}
+
+func TestGenerateCLIIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not found in PATH")
+	}
+
+	result, err := loader.Load("../../../testdata/petstore.yaml")
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+
+	server, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting spec: %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(server, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	// Build the binary
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = outputDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go mod tidy failed: %v\n%s", err, out)
+	}
+
+	binaryPath := filepath.Join(outputDir, "server")
+	cmd = exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd.Dir = outputDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go build failed: %v\n%s", err, out)
+	}
+
+	// Test: ./server tools
+	cmd = exec.Command(binaryPath, "tools")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("./server tools failed: %v\n%s", err, out)
+	}
+	toolsOutput := string(out)
+	if !strings.Contains(toolsOutput, "list_pets") {
+		t.Errorf("tools output missing list_pets: %s", toolsOutput)
+	}
+	if !strings.Contains(toolsOutput, "TOOL") {
+		t.Errorf("tools output missing header: %s", toolsOutput)
+	}
+
+	// Test: ./server call nonexistent_tool (should fail with available tools listed)
+	cmd = exec.Command(binaryPath, "call", "nonexistent_tool")
+	out, err = cmd.CombinedOutput()
+	if err == nil {
+		t.Error("expected error for unknown tool, got nil")
+	}
+	unknownOutput := string(out)
+	if !strings.Contains(unknownOutput, "unknown tool") {
+		t.Errorf("unknown tool output missing error message: %s", unknownOutput)
+	}
+	if !strings.Contains(unknownOutput, "list_pets") {
+		t.Errorf("unknown tool output should list available tools: %s", unknownOutput)
+	}
+
+	// Test: ./server call list_pets limit=10 (will fail at HTTP call, but parsing should work)
+	cmd = exec.Command(binaryPath, "call", "list_pets", "limit=10")
+	out, err = cmd.CombinedOutput()
+	if err == nil {
+		// If it somehow succeeds, that's fine too
+		return
+	}
+	callOutput := string(out)
+	// The error should be about the HTTP call, not CLI argument parsing
+	if strings.Contains(callOutput, "invalid argument") {
+		t.Errorf("call should parse limit=10 correctly, got argument error: %s", callOutput)
 	}
 }
 
