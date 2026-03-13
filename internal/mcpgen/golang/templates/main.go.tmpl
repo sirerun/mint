@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -23,9 +28,19 @@ func main() {
 			log.Fatal(err)
 		}
 	case "sse":
+		shutdownTimeout := 30 * time.Second
+		if v := os.Getenv("SHUTDOWN_TIMEOUT_SECONDS"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				shutdownTimeout = time.Duration(n) * time.Second
+			}
+		}
+
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+		defer stop()
+
 		addr := fmt.Sprintf(":%d", *port)
 		log.Printf("Starting SSE server on %s", addr)
-		if err := srv.ServeSSE(addr); err != nil {
+		if err := srv.ServeSSE(ctx, addr, shutdownTimeout); err != nil {
 			log.Fatal(err)
 		}
 	default:

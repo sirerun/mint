@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -71,11 +73,41 @@ func (s *Server) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-// ServeSSE starts the server using SSE transport.
-func (s *Server) ServeSSE(addr string) error {
+// ServeSSE starts the server using SSE transport with graceful shutdown.
+// It listens for context cancellation to initiate a clean shutdown,
+// draining in-flight connections within the given timeout.
+func (s *Server) ServeSSE(ctx context.Context, addr string, shutdownTimeout time.Duration) error {
 	sseSrv := server.NewSSEServer(s.mcpServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.HealthHandler)
 	mux.Handle("/", sseSrv)
-	return http.ListenAndServe(addr, mux)
+
+	httpSrv := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := httpSrv.ListenAndServe(); err != http.ErrServerClosed {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		log.Println("shutting down...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		return nil
+	}
 }

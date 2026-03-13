@@ -128,6 +128,64 @@ func TestGenerateCompiles(t *testing.T) {
 	}
 }
 
+func TestGenerateGracefulShutdown(t *testing.T) {
+	result, err := loader.Load("../../../testdata/petstore.yaml")
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+
+	srv, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting spec: %v", err)
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(srv, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	// Check main.go has signal handling
+	mainData, err := os.ReadFile(filepath.Join(outputDir, "main.go"))
+	if err != nil {
+		t.Fatalf("reading main.go: %v", err)
+	}
+	mainContent := string(mainData)
+	mainChecks := []string{
+		"signal.NotifyContext",
+		"syscall.SIGTERM",
+		"syscall.SIGINT",
+		"SHUTDOWN_TIMEOUT_SECONDS",
+		"shutdownTimeout",
+	}
+	for _, check := range mainChecks {
+		if !strings.Contains(mainContent, check) {
+			t.Errorf("main.go missing expected string %q", check)
+		}
+	}
+
+	// Check server.go has graceful shutdown
+	serverData, err := os.ReadFile(filepath.Join(outputDir, "server.go"))
+	if err != nil {
+		t.Fatalf("reading server.go: %v", err)
+	}
+	serverContent := string(serverData)
+	serverChecks := []string{
+		"http.Server",
+		"ReadTimeout",
+		"WriteTimeout",
+		"IdleTimeout",
+		"httpSrv.Shutdown",
+		"shutting down",
+		"http.ErrServerClosed",
+	}
+	for _, check := range serverChecks {
+		if !strings.Contains(serverContent, check) {
+			t.Errorf("server.go missing expected string %q", check)
+		}
+	}
+}
+
 func TestGenerateHealthEndpoint(t *testing.T) {
 	result, err := loader.Load("../../../testdata/petstore.yaml")
 	if err != nil {
