@@ -503,11 +503,7 @@ func (c *awsStatusClient) DescribeTargetHealth(ctx context.Context, targetGroupA
 	}
 	result := make([]awspkg.TargetHealthStatus, len(healths))
 	for i, h := range healths {
-		result[i] = awspkg.TargetHealthStatus{
-			TargetID:    h.TargetID,
-			State:       h.State,
-			Description: h.Description,
-		}
+		result[i] = awspkg.TargetHealthStatus(h)
 	}
 	return result, nil
 }
