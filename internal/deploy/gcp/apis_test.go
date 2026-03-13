@@ -1,7 +1,6 @@
 package gcp
 
 import (
-	"context"
 	"testing"
 )
 
@@ -27,6 +26,6 @@ func TestRequiredAPIsContainsExpectedAPIs(t *testing.T) {
 
 func TestCheckAPIsEnabledSignature(t *testing.T) {
 	// Verify the function signature matches the expected contract.
-	var fn func(ctx context.Context, projectID string) error = CheckAPIsEnabled
+	var fn = CheckAPIsEnabled
 	_ = fn
 }

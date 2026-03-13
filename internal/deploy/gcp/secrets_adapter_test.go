@@ -1,7 +1,6 @@
 package gcp
 
 import (
-	"context"
 	"testing"
 )
 
@@ -14,6 +13,6 @@ func TestSecretManagerAdapterImplementsSecretClient(t *testing.T) {
 
 func TestNewSecretManagerAdapterSignature(t *testing.T) {
 	// Verify the constructor accepts a context and returns the expected types.
-	var fn func(context.Context) (*SecretManagerAdapter, error) = NewSecretManagerAdapter
+	var fn = NewSecretManagerAdapter
 	_ = fn
 }

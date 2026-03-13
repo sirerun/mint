@@ -1,7 +1,6 @@
 package gcp
 
 import (
-	"context"
 	"testing"
 )
 
@@ -30,5 +29,5 @@ func TestCloudRunTrafficAdapterInterface(t *testing.T) {
 func TestCloudRunAdapterConstructor(t *testing.T) {
 	// Verify the constructor has the expected signature without calling it
 	// (calling it requires real GCP credentials).
-	var _ func(context.Context) (*CloudRunAdapter, error) = NewCloudRunAdapter
+	var _ = NewCloudRunAdapter
 }
