@@ -64,6 +64,9 @@ func runDeployAWS(args []string) int {
 	debugImage := fs.Bool("debug-image", false, "Use alpine base for debugging")
 	cpu := fs.String("cpu", "256", "CPU units (256, 512, 1024, 2048, 4096)")
 	memory := fs.String("memory", "512", "Memory in MB (512, 1024, 2048, etc.)")
+	repo := fs.String("repo", "", "GitHub repo (owner/name) for OIDC setup (required with --ci)")
+	loadBalancer := fs.String("load-balancer", "", "ALB name for --promote (default: {service}-alb)")
+	canaryTargetGroup := fs.String("canary-target-group", "", "Canary target group name for --promote (default: {service}-canary)")
 
 	var secrets stringSliceFlag
 	fs.Var(&secrets, "secret", "Secret mapping ENV_VAR=secret-name (repeatable)")
@@ -166,15 +169,72 @@ func runDeployAWS(args []string) int {
 	}
 
 	if config.Promote {
-		// TODO: PromoteCanary requires load balancer ARN and canary target group ARN
-		// which need to be resolved from the service context.
-		fmt.Fprintln(os.Stderr, "warning: --promote for AWS requires load balancer context (not yet wired)")
+		lbName := *loadBalancer
+		if lbName == "" {
+			lbName = config.ServiceName + "-alb"
+		}
+		canaryTGName := *canaryTargetGroup
+		if canaryTGName == "" {
+			canaryTGName = config.ServiceName + "-canary"
+		}
+
+		// Discover ALB ARN by name.
+		lbs, lbErr := albAdapter.DescribeLoadBalancers(ctx, []string{lbName})
+		if lbErr != nil || len(lbs) == 0 {
+			fmt.Fprintf(os.Stderr, "error: cannot find load balancer %q: %v\n", lbName, lbErr)
+			return 1
+		}
+		// Discover canary target group ARN by name.
+		tgs, tgErr := albAdapter.DescribeTargetGroups(ctx, []string{canaryTGName})
+		if tgErr != nil || len(tgs) == 0 {
+			fmt.Fprintf(os.Stderr, "error: cannot find canary target group %q: %v\n", canaryTGName, tgErr)
+			return 1
+		}
+
+		if promoteErr := awspkg.PromoteCanary(ctx, albAdapter, lbs[0].ARN, tgs[0].ARN); promoteErr != nil {
+			fmt.Fprintf(os.Stderr, "error: canary promotion failed: %v\n", promoteErr)
+			return 1
+		}
+		_, _ = fmt.Fprintln(os.Stderr, "Canary promoted to 100%")
 	}
 
 	// Handle CI workflow generation.
 	if config.CI {
-		// TODO: AWS CI workflow generation and OIDC setup is being implemented by another teammate.
-		fmt.Fprintln(os.Stderr, "warning: --ci for AWS is not yet implemented")
+		if *repo == "" {
+			fmt.Fprintln(os.Stderr, "error: --repo is required with --ci (format: owner/name)")
+			return 1
+		}
+		parts := strings.SplitN(*repo, "/", 2)
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			fmt.Fprintln(os.Stderr, "error: --repo must be in owner/name format")
+			return 1
+		}
+
+		oidcResult, oidcErr := awspkg.EnsureOIDCProvider(ctx, iamAdapter, awspkg.OIDCConfig{
+			AccountID: creds.AccountID,
+			Region:    creds.Region,
+			RepoOwner: parts[0],
+			RepoName:  parts[1],
+		}, os.Stderr)
+		if oidcErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: OIDC setup failed: %v\n", oidcErr)
+		} else {
+			awspkg.PrintOIDCInstructions(os.Stderr, oidcResult)
+
+			outputDir := filepath.Dir(config.SourceDir)
+			wfResult, wfErr := awspkg.GenerateWorkflow(awspkg.WorkflowConfig{
+				Region:      creds.Region,
+				ServiceName: config.ServiceName,
+				SourceDir:   config.SourceDir,
+				RoleARN:     oidcResult.RoleARN,
+				AccountID:   creds.AccountID,
+			}, outputDir)
+			if wfErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: workflow generation failed: %v\n", wfErr)
+			} else {
+				fmt.Fprintf(os.Stderr, "CI workflow written to %s\n", wfResult.FilePath)
+			}
+		}
 	}
 
 	// Print service URL to stdout.
@@ -658,8 +718,11 @@ Flags for 'aws':
   --max-instances <n>    ECS desired count / auto-scaling max (default: 10)
   --min-instances <n>    ECS auto-scaling min (default: 0)
   --secret <mapping>     Secret mapping ENV_VAR=secret-name (repeatable)
-  --ci                   Generate CI workflow
+  --ci                   Generate CI workflow (requires --repo)
+  --repo <owner/name>    GitHub repo for OIDC setup (required with --ci)
   --promote              Promote canary to 100%%
+  --load-balancer <name> ALB name for --promote (default: {service}-alb)
+  --canary-target-group  Canary target group name (default: {service}-canary)
   --debug-image          Use alpine base for debugging
   --cpu <units>          CPU units (default: 256)
   --memory <mb>          Memory in MB (default: 512)
