@@ -1,4 +1,4 @@
-# Mint -- Phase 2 Remaining: E2E Validation
+# Mint -- CLI Mode for Generated MCP Servers
 
 ## Context
 
@@ -6,31 +6,43 @@ See docs/design.md for full project context, architecture, and conventions.
 
 ### Problem Statement
 
-Mint deploys generated MCP servers to GCP Cloud Run, AWS ECS Fargate, and Azure Container Apps. All three providers have complete implementations with unit tests, CLI wiring, CI workflow generation, and production hardening (auto-scaling, custom domains, graceful shutdown, observability). The remaining work is E2E validation against real cloud accounts.
+Mint-generated MCP servers currently support two transport modes: stdio (JSON-RPC over stdin/stdout for MCP clients) and SSE (HTTP Server-Sent Events). Both modes require an MCP client to interact with the server. There is no way for a user to invoke a tool directly from the terminal as a one-shot command.
 
-Additionally, the mint registry at `sirerun/mcp-registry` is a curated catalog of OpenAPI specs (separate from the official MCP registry at `registry.modelcontextprotocol.io` which lists pre-built servers). See docs/adr/010-mcp-server-registry.md for the full rationale.
+Users want to test and debug generated servers without setting up an MCP client. They want to run commands like:
+
+```
+./server call list_pets limit=10
+./server tools
+```
+
+This requires a third mode in the generated `main.go` that parses CLI arguments, invokes the appropriate MCP tool handler directly, and prints human-readable output to stdout.
 
 ### Objectives
 
-1. Validate all three deploy providers end-to-end with real cloud accounts.
-2. Fix any bugs discovered during E2E testing.
+1. Generated MCP servers support a `call` subcommand that invokes any registered tool with key=value arguments.
+2. Generated MCP servers support a `tools` subcommand that lists all available tools with descriptions and parameters.
+3. Output is human-readable by default (formatted JSON), with a `--raw` flag for compact JSON.
+4. The CLI mode does not require an MCP client -- it calls the tool handler functions directly.
 
 ### Non-Goals
 
-- New feature development (all features are implemented).
-- Registry changes (Option 3 decision is finalized in ADR 010).
+- Interactive REPL mode.
+- Shell completions for tool names.
+- Streaming responses in CLI mode.
 
 ### Constraints and Assumptions
 
-- E2E validation requires real AWS and Azure sandbox credentials.
-- GCP E2E was validated in M13 with the Twitter API v2 spec.
-- Azure E2E depends on Azure CLI wiring (E33, completed).
+- Generated servers use the standard `flag` package, not cobra. CLI subcommands are dispatched via positional arguments after flag parsing.
+- The `call` subcommand must work with the same Server struct and handler methods used by stdio/sse modes.
+- Arguments are passed as `key=value` pairs (positional args after the tool name), not as `--key value` flags, because tool parameter names are dynamic and not known at compile time.
 
 ### Success Metrics
 
-- Twitter API v2 MCP server deploys and responds on AWS and Azure.
-- Canary deployment works on both providers.
-- All bugs found during E2E are fixed and committed.
+- `./server tools` lists all tools with their descriptions and parameter schemas.
+- `./server call <tool_name> key=value ...` invokes the tool and prints formatted JSON output.
+- `./server call <tool_name> --raw key=value ...` prints compact JSON.
+- `./server call <unknown_tool>` prints an error listing available tools.
+- Existing stdio and sse modes are unaffected.
 
 ---
 
@@ -38,45 +50,74 @@ Additionally, the mint registry at `sirerun/mcp-registry` is a curated catalog o
 
 ### In Scope
 
-- E2E validation for AWS and Azure against real cloud accounts.
-- Bug fixes discovered during validation.
+- New `cli.go.tmpl` template for CLI dispatch logic (tools listing, call routing, argument parsing, output formatting).
+- Updated `main.go.tmpl` to dispatch `tools` and `call` subcommands before the transport switch.
+- Updated `readme.md.tmpl` with CLI usage examples.
+- Unit tests for the CLI dispatch logic in the template test suite.
+- An integration test that generates a server from the petstore spec, builds it, and runs `tools` and `call` subcommands.
 
 ### Out of Scope
 
-- New provider targets or features.
-- Registry UI or changes to registry architecture.
+- Changes to the MCP model, converter, or existing transport templates (server.go, tools.go, client.go).
+- Changes to the mint CLI itself (cmd/mint/).
 
 ### Deliverables
 
 | ID | Description | Owner | Acceptance Criteria |
 |----|-------------|-------|---------------------|
-| D12 | E2E validation (AWS + Azure) | TBD | Twitter MCP server deploys and responds on AWS and Azure |
+| D13 | CLI mode for generated servers | TBD | `./server tools` and `./server call <tool> key=value` work on petstore-generated server |
 
 ---
 
 ## Checkable Work Breakdown
 
-### Epic E29: E2E Validation
+### Epic E41: CLI Mode Template
 
-- [ ] T29.1 Deploy Twitter API v2 MCP server to AWS  Owner: TBD  Est: 2h
-  - Dependencies: none (AWS deploy is complete)
-  - AC: Generate MCP server from Twitter API v2 spec. Deploy to ECS Fargate in AWS sandbox. `curl /health` returns 200. Status and rollback commands work.
+- [x] T41.1 Create cli.go.tmpl template  Owner: TBD  Est: 1h  Done: 2026-03-13
+  - Dependencies: none
+  - AC: Template generates a `cli.go` file with three exported functions on Server:
+    - `RunCLI(args []string) error` -- entry point that dispatches to tools or call.
+    - `ListTools(w io.Writer)` -- prints table of tool names, descriptions, and parameters to w.
+    - `CallTool(ctx context.Context, name string, args map[string]interface{}, raw bool, w io.Writer) error` -- builds an `mcp.CallToolRequest`, calls the matching tool handler, formats and prints the result to w.
+  - `CallTool` must parse key=value strings into a `map[string]interface{}`, attempting numeric conversion for values that look like numbers (so `limit=10` passes as float64, matching JSON semantics).
+  - If the tool name is not found, print an error with the list of available tools.
+  - Risk: The `mcp.CallToolRequest` construction must match what `mcp-go` expects internally.
 
-- [ ] T29.2 Validate canary deployment on AWS  Owner: TBD  Est: 1h
-  - Dependencies: T29.1
-  - AC: Deploy with `--canary 20`, verify ALB routes 20% to new target group. `--promote` shifts to 100%.
+- [x] T41.2 Update main.go.tmpl for subcommand dispatch  Owner: TBD  Est: 30m  Done: 2026-03-13
+  - Dependencies: T41.1
+  - AC: Before flag parsing and the transport switch, check `os.Args` for subcommands:
+    - `os.Args[1] == "tools"` -> call `srv.ListTools(os.Stdout)` and exit.
+    - `os.Args[1] == "call"` -> call `srv.RunCLI(os.Args[2:])` and exit.
+    - Otherwise, proceed to existing flag parsing and transport switch.
+  - The subcommand check must happen before `flag.Parse()` because `flag.Parse()` would reject unknown positional args.
 
-- [ ] T29.3 Deploy Twitter API v2 MCP server to Azure  Owner: TBD  Est: 2h
-  - Dependencies: none (Azure deploy is complete)
-  - AC: Deploy to Azure Container Apps. Health check passes. Status and rollback work.
+- [x] T41.3 Register cli.go.tmpl in generate.go  Owner: TBD  Est: 15m  Done: 2026-03-13
+  - Dependencies: T41.1
+  - AC: Add `{"templates/cli.go.tmpl", "cli.go"}` to the templates slice in `Generate()`. The generated cli.go compiles with the rest of the project.
 
-- [ ] T29.4 Validate canary deployment on Azure  Owner: TBD  Est: 1h
-  - Dependencies: T29.3
-  - AC: Deploy with `--canary 20`, verify revision traffic split. Promote shifts to 100%.
+- [x] T41.4 Update readme.md.tmpl with CLI usage  Owner: TBD  Est: 15m  Done: 2026-03-13
+  - Dependencies: T41.1
+  - AC: Add a "CLI Mode" section showing `tools` and `call` usage examples.
 
-- [ ] T29.5 Document and fix all bugs found during E2E  Owner: TBD  Est: 2h
-  - Dependencies: T29.1 through T29.4
-  - AC: All bugs fixed and committed.
+- [x] T41.5 Add unit tests for CLI template generation  Owner: TBD  Est: 45m  Done: 2026-03-13
+  - Dependencies: T41.1, T41.3
+  - AC: Test in `internal/mcpgen/golang/generate_test.go` (or a new `cli_test.go`):
+    - Generate from petstore spec and verify `cli.go` exists in output.
+    - Verify `cli.go` contains expected function signatures.
+    - Verify `main.go` contains subcommand dispatch code.
+
+- [x] T41.6 Add integration test: build and run CLI mode  Owner: TBD  Est: 1h  Done: 2026-03-13
+  - Dependencies: T41.1, T41.2, T41.3
+  - AC: Integration test that:
+    1. Generates a server from `testdata/petstore.yaml`.
+    2. Runs `go build` on the output.
+    3. Runs `./server tools` and verifies tool names appear in output.
+    4. Runs `./server call list_pets limit=10` and verifies JSON output (the API call will fail since there is no real server, but the argument parsing and dispatch should work -- verify the error message mentions the HTTP call, not a CLI parsing error).
+    5. Runs `./server call nonexistent_tool` and verifies error output lists available tools.
+
+- [x] T41.7 Run linter and formatter  Owner: TBD  Est: 15m  Done: 2026-03-13
+  - Dependencies: T41.1 through T41.6
+  - AC: `golangci-lint run` and `gofmt -s` produce no findings on changed files.
 
 ---
 
@@ -84,10 +125,19 @@ Additionally, the mint registry at `sirerun/mcp-registry` is a curated catalog o
 
 | Track | Task IDs | Description |
 |-------|----------|-------------|
-| Track A: AWS E2E | T29.1, T29.2 | AWS deploy + canary validation |
-| Track B: Azure E2E | T29.3, T29.4 | Azure deploy + canary validation |
+| Track A: Templates | T41.1, T41.2, T41.3, T41.4 | Create and wire CLI templates |
+| Track B: Tests | T41.5, T41.6 | Unit and integration tests |
 
-Track A and Track B can run in parallel. T29.5 (bug fixes) runs after both tracks complete.
+Track A must complete before Track B starts.
+
+### Maximum Parallelism
+
+| Wave | Tasks | Notes |
+|------|-------|-------|
+| Wave 1 | T41.1 | Core template -- all other tasks depend on this |
+| Wave 2 | T41.2, T41.3, T41.4 | Can run in parallel once T41.1 exists |
+| Wave 3 | T41.5, T41.6 | Tests run in parallel after templates are wired |
+| Wave 4 | T41.7 | Lint/format after all code is written |
 
 ---
 
@@ -95,8 +145,8 @@ Track A and Track B can run in parallel. T29.5 (bug fixes) runs after both track
 
 | Milestone | ID | Dependencies | Exit Criteria |
 |-----------|----|--------------|---------------|
-| M24: All Providers Validated | E29 | none | E2E passes on AWS and Azure with Twitter MCP server |
-| M25: Production Ready | E29 | M24 | All bugs fixed, all quality gates pass |
+| M26: CLI Templates | T41.1-T41.4 | none | Generated server compiles with CLI mode |
+| M27: CLI Validated | T41.5-T41.7 | M26 | All tests pass, lint clean |
 
 ---
 
@@ -104,8 +154,8 @@ Track A and Track B can run in parallel. T29.5 (bug fixes) runs after both track
 
 | ID | Risk | Impact | Likelihood | Mitigation |
 |----|------|--------|------------|------------|
-| R12 | AWS/Azure sandbox credentials not available | E2E blocked indefinitely | High | Document required credentials and permissions. Provide setup guide. |
-| R13 | Cloud SDK rate limits or quota during E2E | Tests fail intermittently | Low | Use dedicated test accounts with sufficient quotas. |
+| R14 | mcp.CallToolRequest internal structure changes between mcp-go versions | CLI call dispatch breaks | Low | Pin mcp-go version in generated go.mod. Use only public API. |
+| R15 | key=value parsing fails for complex values (JSON objects, arrays) | Some tools unusable from CLI | Medium | Support `key=@file.json` syntax for complex values in a follow-up if needed. Document limitation. |
 
 ---
 
@@ -125,34 +175,109 @@ A task is done when:
 - Always add tests when adding new implementation code.
 - Always run relevant linters and formatters after code changes.
 - Never commit files from different directories in the same commit.
-- Conventional Commits: feat(deploy):, fix(deploy):, test(deploy):, docs:.
+- Conventional Commits: feat(mcpgen):, test(mcpgen):.
 
 ---
 
 ## Progress Log
 
-### 2026-03-13 -- Plan Trimmed for Option 3
-
-Trimmed completed epics E30-E40 (except T29.1-5) into docs/design.md. All Azure, managed hosting, registry, and hardening work is complete. Updated ADR 010 with official MCP registry relationship and Option 3 decision (keep registries separate). Only E2E validation tasks (T29.1-5) remain, blocked on real cloud sandbox credentials.
-
-Changes:
-- Trimmed 55 completed tasks (E30-E40) from plan. Knowledge preserved in docs/design.md (Azure deploy architecture, managed hosting, registry, production hardening, milestones M19-M23).
-- Updated docs/adr/010-mcp-server-registry.md with "Relationship to the Official MCP Registry" section documenting Option 3 decision.
-- Updated docs/design.md with Azure service mapping, managed hosting architecture, registry architecture, shared domain validation, production hardening details.
-
 ### 2026-03-13 -- Plan Created
 
-Created Phase 2 plan covering four initiatives: D (Azure Container Apps), A (Managed Hosting), B (MCP Registry), C (E2E + Hardening). Defined 12 epics (E29-E40), 55 tasks. Trimmed completed AWS epics (E24-E28) from plan; knowledge preserved in docs/design.md (milestones M14-M18, AWS deploy architecture, deploy directory structure). Created three ADRs:
-- docs/adr/008-azure-container-apps-deployment-target.md
-- docs/adr/009-managed-mcp-hosting-platform.md
-- docs/adr/010-mcp-server-registry.md
+Created plan for CLI mode in generated MCP servers. Defined epic E41 with 7 tasks. The feature adds a `call` subcommand and `tools` listing to generated servers, enabling direct terminal usage without an MCP client. Implementation is entirely within the template layer (new cli.go.tmpl, updated main.go.tmpl and readme.md.tmpl).
+
+Prior E2E validation work (E29) is tracked separately and remains blocked on cloud sandbox credentials.
 
 ---
 
 ## Hand-off Notes
 
-- All implementation is complete. Only E2E validation (T29.1-5) remains.
-- E2E requires real AWS and Azure sandbox credentials. GCP E2E was already validated in M13.
-- The mint registry (`sirerun/mcp-registry`) lists OpenAPI specs for generation. The official MCP registry (`registry.modelcontextprotocol.io`) lists pre-built servers. They are complementary. See docs/adr/010-mcp-server-registry.md.
-- `mint registry install <name>` currently downloads the spec and prints instructions. A future enhancement could invoke `mint mcp generate` via subprocess.
-- All tests pass with `-race`. golangci-lint is clean on all new code.
+- This feature only changes generated server templates in `internal/mcpgen/golang/templates/`. No changes to the mint CLI itself.
+- The key design choice is dispatching subcommands via positional args (`os.Args[1]`) before `flag.Parse()`, since tool parameter names are dynamic.
+- Arguments use `key=value` syntax (not `--key value`) because tool parameters are not known at compile time.
+- The `CallTool` function constructs an `mcp.CallToolRequest` and calls the handler directly -- it does not go through the stdio or SSE transport.
+- Existing template tests are in `internal/mcpgen/golang/generate_test.go`.
+- Petstore test spec is at `testdata/petstore.yaml`.
+
+---
+
+## Appendix
+
+### Example CLI Usage (Generated Server)
+
+```
+# List all available tools
+./server tools
+
+# Call a tool with arguments
+./server call list_pets limit=10
+
+# Call with raw (compact) JSON output
+./server call list_pets --raw limit=10
+
+# Call a tool with no arguments
+./server call get_server_info
+
+# Error: unknown tool
+./server call nonexistent
+Error: unknown tool "nonexistent". Available tools:
+  list_pets      - List all pets
+  create_pet     - Create a new pet
+  get_pet_by_id  - Get a pet by its ID
+```
+
+### cli.go.tmpl Sketch
+
+```go
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "io"
+    "os"
+    "strconv"
+    "strings"
+    "text/tabwriter"
+
+    "github.com/mark3labs/mcp-go/mcp"
+)
+
+func (s *Server) RunCLI(args []string) error {
+    if len(args) == 0 {
+        s.ListTools(os.Stdout)
+        return nil
+    }
+
+    toolName := args[0]
+    raw := false
+    kvArgs := args[1:]
+
+    // Check for --raw flag
+    for i, a := range kvArgs {
+        if a == "--raw" {
+            raw = true
+            kvArgs = append(kvArgs[:i], kvArgs[i+1:]...)
+            break
+        }
+    }
+
+    params := make(map[string]interface{})
+    for _, kv := range kvArgs {
+        k, v, ok := strings.Cut(kv, "=")
+        if !ok {
+            return fmt.Errorf("invalid argument %q: expected key=value", kv)
+        }
+        // Try numeric conversion
+        if n, err := strconv.ParseFloat(v, 64); err == nil {
+            params[k] = n
+        } else if v == "true" || v == "false" {
+            params[k] = v == "true"
+        } else {
+            params[k] = v
+        }
+    }
+
+    return s.CallTool(context.Background(), toolName, params, raw, os.Stdout)
+}
+```
