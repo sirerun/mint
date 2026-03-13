@@ -6,7 +6,7 @@ Turn any API into an MCP server in seconds.
 mint mcp generate https://api.twitter.com/2/openapi.json
 ```
 
-That's it. You now have a production-ready Go MCP server with 156 tools, stdio and SSE transports, health checks, and a Dockerfile. Connect it to Claude, Cursor, or any MCP client immediately.
+That's it. You now have a production-ready Go MCP server with 156 tools, stdio and SSE transports, a built-in CLI for testing, health checks, and a Dockerfile. Connect it to Claude, Cursor, or any MCP client -- or call tools directly from the terminal.
 
 ## Install
 
@@ -42,6 +42,10 @@ go mod tidy && go build -o twitter-mcp .
 
 # SSE transport (remote clients, Cloud Run, ECS Fargate)
 ./twitter-mcp --transport sse --port 8080
+
+# CLI mode -- call tools directly from the terminal
+./twitter-mcp tools
+./twitter-mcp call find_tweets_by_id ids=1234567890
 ```
 
 ### 3. Connect to Claude Desktop
@@ -75,9 +79,10 @@ No Dockerfile edits, no infrastructure YAML, no manual container registry setup.
 
 ```
 twitter-mcp/
-  main.go       Entry point with stdio/SSE transport selection
+  main.go       Entry point with stdio/SSE/CLI mode dispatch
   server.go     MCP server setup and tool registration
   tools.go      One handler per API operation
+  cli.go        CLI mode: tools listing, call routing, output formatting
   client.go     HTTP client for the upstream API
   go.mod        Go module with mcp-go dependency
   Dockerfile    Multi-stage distroless build
@@ -182,6 +187,30 @@ mint deploy aws --region us-east-1 --source ./server \
 ```
 
 Mint creates the ECR repository, CodeBuild project, ECS cluster, task definitions, ALB, IAM roles, and Secrets Manager entries automatically. The `--ci` flag also sets up a GitHub Actions OIDC identity provider for keyless authentication.
+
+## CLI Mode
+
+Generated servers include a built-in CLI for testing and debugging without an MCP client:
+
+```bash
+# List all available tools
+./twitter-mcp tools
+
+# Call a tool with key=value arguments
+./twitter-mcp call find_tweets_by_id ids=1234567890
+
+# Compact JSON output
+./twitter-mcp call find_tweets_by_id --raw ids=1234567890
+
+# Unknown tool shows available options
+./twitter-mcp call nonexistent
+# Error: unknown tool "nonexistent". Available tools:
+#   find_tweets_by_id    Find Tweets by ID
+#   create_tweet         Create a Tweet
+#   ...
+```
+
+Arguments use `key=value` syntax. Numeric values are auto-converted (`limit=10` passes as a number). Boolean values (`verbose=true`) are converted to booleans. Everything else is a string.
 
 ## Generation Options
 

@@ -38,6 +38,26 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
+## CLI Mode
+
+List all available tools:
+
+```bash
+./{{.Name}} tools
+```
+
+Call a tool with arguments:
+
+```bash
+./{{.Name}} call <tool_name> key=value ...
+```
+
+Call with compact JSON output:
+
+```bash
+./{{.Name}} call <tool_name> --raw key=value ...
+```
+
 ## Tools
 
 {{range .Tools -}}
