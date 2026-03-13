@@ -29,7 +29,7 @@ func serveIndex(t *testing.T, index *RegistryIndex) *httptest.Server {
 	}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		_, _ = w.Write(data)
 	}))
 }
 
@@ -64,7 +64,7 @@ func TestFetchIndex_HTTPError(t *testing.T) {
 
 func TestFetchIndex_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("not json"))
+		_, _ = w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
 
