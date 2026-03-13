@@ -27,7 +27,8 @@ internal/
   transform/        Spec transformation (filter, cleanup, format, Swagger 2.0 convert)
   color/            Terminal color utilities
   deploy/           Deploy configuration model and validation
-  deploy/gcp/       GCP deployment orchestration (interfaces, business logic, adapters)
+  deploy/gcp/       GCP Cloud Run deployment (interfaces, business logic, adapters)
+  deploy/aws/       AWS ECS Fargate deployment (interfaces, business logic, adapters)
 templates/mcp-go/   Reference copies of Go templates
 examples/           Petstore, merge, overlay examples
 testdata/           Test OpenAPI specs
@@ -54,17 +55,40 @@ testdata/           Test OpenAPI specs
 
 ### Deploy Architecture
 
-The deploy feature uses an interface-based dependency injection architecture. All layers are fully implemented:
+The deploy feature uses a three-layer interface-based dependency injection architecture:
 
+```
+Deployer (orchestrator)
+  -> Bridge Adapters (business logic: ensure-if-missing, retry, poll)
+    -> SDK Adapters (thin wrappers around cloud SDK calls)
+```
+
+Each layer is separated by Go interfaces, making everything testable with mocks. SDK adapters extract narrow interfaces for the underlying cloud SDK methods so unit tests never call real cloud APIs.
+
+**Shared components:**
 - `internal/deploy/config.go` -- DeployConfig struct, validation, flag parsing.
+- `cmd/mint/deploy.go` -- CLI flag parsing, adapter instantiation, and orchestration calls for all providers and subcommands (aws, gcp, status, rollback).
+
+**GCP Cloud Run deployment:**
 - `internal/deploy/gcp/deploy.go` -- Deployer orchestrator with 8 pluggable interfaces.
 - `internal/deploy/gcp/*.go` -- Interface definitions and business logic for each concern (registry, build, cloudrun, iam, secrets, sourcerepo, sourcepush, status, rollback, canary, healthcheck, workloadidentity, labels, workflow).
-- `internal/deploy/gcp/*_adapter.go` -- Concrete GCP SDK adapter implementations for all interfaces.
-- `internal/deploy/gcp/adapters.go` -- Bridge adapter layer connecting low-level SDK client interfaces to high-level Deployer orchestrator interfaces.
-- `internal/deploy/gcp/apis.go` -- GCP API enablement check (verifies required APIs are enabled before deploy).
-- `cmd/mint/deploy.go` -- CLI flag parsing, adapter instantiation, and orchestration calls for `gcp`, `status`, and `rollback` subcommands.
+- `internal/deploy/gcp/*_adapter.go` -- Concrete GCP SDK adapter implementations.
+- `internal/deploy/gcp/adapters.go` -- Bridge adapter layer connecting SDK clients to Deployer interfaces.
 
-**Adapter architecture:** CloudRunAdapter is split into 4 sub-adapter structs (CloudRunServiceAdapter, CloudRunStatusAdapter, CloudRunRevisionAdapter, CloudRunTrafficAdapter) because Go does not allow methods with the same name but different return types on one struct. See docs/adr/005-gcp-sdk-adapter-pattern.md.
+**AWS ECS Fargate deployment:**
+- `internal/deploy/aws/deploy.go` -- Deployer struct with 6 orchestrator interfaces: RegistryProvisioner, ImageBuilder, ServiceDeployer, IAMConfigurator, SecretProvisioner, HealthProber.
+- `internal/deploy/aws/*.go` -- Interface definitions: ECRClient, CodeBuildClient, ECSClient, ALBClient, IAMClient, SecretsClient, StatusClient, RollbackClient, CanaryClient, OIDCClient.
+- `internal/deploy/aws/*_adapter.go` -- SDK adapters with extracted narrow SDK interfaces (ecsAPI, elbv2API, ecrAPI, codebuildAPI, iamAPI, secretsManagerAPI) for unit testing.
+- `internal/deploy/aws/adapters.go` -- Bridge adapters (registryBridge, buildBridge, ecsBridge, iamBridge, secretsBridge, healthBridge).
+- `internal/deploy/aws/auth.go` -- AWS authentication via SDK default chain + STS GetCallerIdentity.
+- `internal/deploy/aws/apis.go` -- Service prerequisite check (7 AWS services).
+- `internal/deploy/aws/status.go`, `rollback.go`, `canary.go` -- Status, rollback, canary traffic splitting.
+- `internal/deploy/aws/workflow.go`, `oidc.go` -- CI workflow generation and OIDC identity provider setup.
+- `internal/deploy/aws/healthcheck.go` -- HTTP health probe with exponential backoff.
+
+**Adapter architecture pattern (both providers):**
+- CloudRunAdapter (GCP) is split into 4 sub-adapter structs because Go does not allow methods with the same name but different return types on one struct. See docs/adr/005-gcp-sdk-adapter-pattern.md.
+- AWS adapters extract narrow interfaces (e.g., `ecsAPI`, `elbv2API`) for the underlying SDK clients, enabling unit testing of adapter methods without real AWS credentials.
 
 ### Key Dependencies
 
@@ -72,14 +96,25 @@ The deploy feature uses an interface-based dependency injection architecture. Al
 |-----------|---------|---------|
 | pb33f/libopenapi | OpenAPI parsing | mint binary |
 | mark3labs/mcp-go | Go MCP SDK | Generated servers only |
-| cloud.google.com/go/artifactregistry | Artifact Registry SDK | mint binary (adapter) |
-| cloud.google.com/go/run/apiv2 | Cloud Run Admin API v2 | mint binary (adapter) |
-| cloud.google.com/go/cloudbuild/apiv1/v2 | Cloud Build API | mint binary (adapter) |
-| cloud.google.com/go/secretmanager/apiv1 | Secret Manager API | mint binary (adapter) |
-| cloud.google.com/go/iam/admin/apiv1 | IAM Admin API | mint binary (adapter) |
-| cloud.google.com/go/storage | Cloud Storage (source upload) | mint binary (build adapter) |
-| google.golang.org/api/serviceusage/v1 | Service Usage API | mint binary (API check) |
-| google.golang.org/api/sourcerepo/v1 | Source Repos REST API (deprecated) | mint binary (adapter) |
+| cloud.google.com/go/* | GCP SDK (multiple services) | mint binary (GCP adapters) |
+| github.com/aws/aws-sdk-go-v2/* | AWS SDK v2 (multiple services) | mint binary (AWS adapters) |
+
+### AWS Service Mapping
+
+| GCP Service | AWS Equivalent | Go SDK Module |
+|-------------|---------------|---------------|
+| Artifact Registry | ECR | `aws-sdk-go-v2/service/ecr` |
+| Cloud Build | CodeBuild | `aws-sdk-go-v2/service/codebuild` |
+| Cloud Run | ECS Fargate | `aws-sdk-go-v2/service/ecs` |
+| (ALB for traffic) | Elastic Load Balancing v2 | `aws-sdk-go-v2/service/elasticloadbalancingv2` |
+| Secret Manager | Secrets Manager | `aws-sdk-go-v2/service/secretsmanager` |
+| IAM | IAM | `aws-sdk-go-v2/service/iam` |
+
+### CI/CD
+
+- `go-semantic-release` on merge to main: analyzes conventional commits, creates git tag + GitHub Release.
+- `goreleaser` builds binaries for linux/darwin/windows (amd64/arm64), publishes to Homebrew tap.
+- CI workflow runs: go build, go test -race, go vet, golangci-lint on every PR.
 
 ## Conventions
 
@@ -110,15 +145,7 @@ A task is done when:
 - Never commit files from different directories in the same commit.
 - Never allow changes to pile up. Make many small logical commits.
 - Each commit should represent one logical change and have a clear message.
-
-### Deploy IAM Roles
-
-Required IAM roles for the deployer service account:
-- `roles/run.admin`
-- `roles/artifactregistry.admin`
-- `roles/cloudbuild.builds.editor`
-- `roles/secretmanager.admin`
-- `roles/iam.serviceAccountAdmin`
+- Conventional Commits format: feat(scope):, fix(scope):, docs:, test:, chore:.
 
 ## Key File Paths
 
@@ -126,18 +153,18 @@ Required IAM roles for the deployer service account:
 |------|-------------|
 | cmd/mint/main.go | CLI entry point and subcommand dispatch |
 | cmd/mint/mcp.go | `mint mcp generate` command |
-| cmd/mint/deploy.go | Deploy CLI dispatch (gcp, status, rollback) -- fully wired |
-| internal/deploy/gcp/adapters.go | Bridge adapters (8 types) connecting SDK clients to Deployer |
-| internal/deploy/gcp/*_adapter.go | GCP SDK adapter implementations (registry, build, cloudrun, iam, secrets, sourcerepo, git) |
-| internal/deploy/gcp/apis.go | GCP API enablement check |
-| internal/mcpgen/model.go | MCP model structs (MCPServer, MCPTool, MCPToolParam, MCPAuth) |
+| cmd/mint/deploy.go | Deploy CLI dispatch (aws, gcp, status, rollback) |
+| internal/deploy/config.go | DeployConfig, validation, SecretMapping |
+| internal/deploy/gcp/deploy.go | GCP Deployer orchestrator (8 interface deps) |
+| internal/deploy/gcp/adapters.go | GCP bridge adapters |
+| internal/deploy/aws/deploy.go | AWS Deployer orchestrator (6 interface deps) |
+| internal/deploy/aws/adapters.go | AWS bridge adapters |
+| internal/mcpgen/model.go | MCP model structs |
 | internal/mcpgen/converter.go | OpenAPI-to-MCP model converter |
 | internal/mcpgen/golang/generate.go | Go code generation orchestrator |
-| internal/mcpgen/golang/templates/ | Embedded Go templates (7 files) |
-| internal/deploy/config.go | DeployConfig, validation, SecretMapping |
-| internal/deploy/gcp/deploy.go | Deployer orchestrator (8 interface deps) |
 | .goreleaser.yml | Cross-platform release config |
-| action.yml | GitHub Action for lint/validate/diff in CI |
+| .github/workflows/release.yml | go-semantic-release + goreleaser |
+| .github/workflows/ci.yml | Build, test, vet, lint |
 
 ## Completed Milestones
 
@@ -148,10 +175,15 @@ Required IAM roles for the deployer service account:
 | M3: MCP Generation | 2026-03 | `mint mcp generate` produces working Go MCP servers |
 | M4: MCP Advanced + CI/CD | 2026-03 | Auth, SSE, filtering, GitHub Actions |
 | M5: Ship It | 2026-03 | README, examples, v0.1.0 release |
-| M6-M10: Deploy Scaffold | 2026-03 | Interface design, business logic, mock tests for deploy feature |
+| M6-M10: Deploy Scaffold | 2026-03 | Interface design, business logic, mock tests for deploy |
 | M11: Adapters Complete | 2026-03 | All 8 GCP SDK adapter files compile, interface checks pass |
 | M12: CLI Wired | 2026-03 | deploy gcp, status, rollback execute real GCP calls |
 | M13: Production Ready | 2026-03 | Manual e2e validation passes with Twitter API v2 spec |
+| M14: AWS Scaffold | 2026-03 | AWS Deployer struct, interfaces, orchestration with unit tests |
+| M15: AWS Adapters Complete | 2026-03 | All 6 AWS SDK adapters + bridge layer |
+| M16: AWS Status/Rollback/Canary | 2026-03 | Status, rollback, canary business logic with unit tests |
+| M17: AWS CLI Wired | 2026-03 | deploy aws, status --provider aws, rollback --provider aws |
+| M18: AWS CI Wired | 2026-03 | Workflow generation, OIDC setup, --ci and --promote flags |
 
 ## References
 
