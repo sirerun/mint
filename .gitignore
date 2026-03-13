@@ -14,3 +14,7 @@ Thumbs.db
 
 # Test
 coverage.out
+
+# Semantic release artifacts
+.semrel/
+.generated-go-semantic-release-changelog.md
