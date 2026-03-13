@@ -1,0 +1,108 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+	"text/tabwriter"
+
+	"github.com/mark3labs/mcp-go/mcp"
+)
+
+// RunCLI dispatches CLI subcommands: tool name followed by key=value arguments.
+func (s *Server) RunCLI(args []string) error {
+	if len(args) == 0 {
+		s.ListTools(os.Stdout)
+		return nil
+	}
+
+	toolName := args[0]
+	raw := false
+	kvArgs := args[1:]
+
+	// Check for --raw flag
+	for i, a := range kvArgs {
+		if a == "--raw" {
+			raw = true
+			kvArgs = append(kvArgs[:i], kvArgs[i+1:]...)
+			break
+		}
+	}
+
+	params := make(map[string]interface{})
+	for _, kv := range kvArgs {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok {
+			return fmt.Errorf("invalid argument %q: expected key=value", kv)
+		}
+		if n, err := strconv.ParseFloat(v, 64); err == nil {
+			params[k] = n
+		} else if v == "true" || v == "false" {
+			params[k] = v == "true"
+		} else {
+			params[k] = v
+		}
+	}
+
+	return s.CallTool(context.Background(), toolName, params, raw, os.Stdout)
+}
+
+// ListTools prints a table of all registered tools with descriptions and parameters.
+func (s *Server) ListTools(w io.Writer) {
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "TOOL\tDESCRIPTION\tPARAMETERS")
+	fmt.Fprintln(tw, "----\t-----------\t----------")
+{{- range .Tools}}
+	fmt.Fprintln(tw, "{{.Name}}\t{{goString .Description}}\t{{range $i, $p := .Params}}{{if $i}}, {{end}}{{$p.Name}}{{end}}")
+{{- end}}
+	tw.Flush()
+}
+
+// CallTool invokes the named tool with the given arguments and writes the result to w.
+func (s *Server) CallTool(ctx context.Context, name string, args map[string]interface{}, raw bool, w io.Writer) error {
+	request := mcp.CallToolRequest{}
+	request.Params.Name = name
+	request.Params.Arguments = args
+
+	var result *mcp.CallToolResult
+	var err error
+
+	switch name {
+{{- range .Tools}}
+	case "{{.Name}}":
+		result, err = s.handle{{exportName .Name}}(ctx, request)
+{{- end}}
+	default:
+		fmt.Fprintf(w, "Error: unknown tool %q. Available tools:\n", name)
+		s.ListTools(w)
+		return fmt.Errorf("unknown tool: %s", name)
+	}
+
+	if err != nil {
+		return fmt.Errorf("tool %s: %w", name, err)
+	}
+
+	if result == nil {
+		return nil
+	}
+
+	if raw {
+		data, err := json.Marshal(result)
+		if err != nil {
+			return fmt.Errorf("marshaling result: %w", err)
+		}
+		fmt.Fprintln(w, string(data))
+	} else {
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshaling result: %w", err)
+		}
+		fmt.Fprintln(w, string(data))
+	}
+
+	return nil
+}

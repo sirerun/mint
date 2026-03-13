@@ -13,6 +13,24 @@ import (
 )
 
 func main() {
+	// Dispatch CLI subcommands before flag.Parse() because tool parameter
+	// names are dynamic and would be rejected by the flag package.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "tools":
+			srv := NewServer("", "")
+			srv.ListTools(os.Stdout)
+			return
+		case "call":
+			srv := NewServer("", os.Getenv("{{.Auth.EnvVar}}"))
+			if err := srv.RunCLI(os.Args[2:]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+	}
+
 	transport := flag.String("transport", "stdio", "Transport type: stdio or sse")
 	port := flag.Int("port", 8080, "Port for SSE transport")
 	baseURL := flag.String("base-url", "{{.BaseURL}}", "Base URL of the API")
