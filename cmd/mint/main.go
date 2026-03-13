@@ -48,6 +48,8 @@ func run(args []string) int {
 		return runInstall(args[1:])
 	case "seed":
 		return runSeed(args[1:])
+	case "registry":
+		return runRegistry(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n\nRun 'mint help' for usage.\n", args[0])
 		return 1
@@ -73,6 +75,7 @@ Commands:
   publish     Publish an MCP server to the registry
   install     Install an MCP server from the registry
   seed        Batch-generate MCP servers from a catalog of OpenAPI specs
+  registry    Search and install MCP servers from the public registry
   version     Print the version
   help        Show this help message
 
