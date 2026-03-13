@@ -48,12 +48,12 @@ func Authenticate(ctx context.Context, stderr io.Writer) (*Credentials, error) {
 
 	cred, err := newDefaultCredential(nil)
 	if err != nil {
-		return nil, fmt.Errorf("Azure credentials not found. Configure credentials via environment variables, Azure CLI, or managed identity: %w", err)
+		return nil, fmt.Errorf("azure credentials not found. Configure credentials via environment variables, Azure CLI, or managed identity: %w", err)
 	}
 
 	tenantID := os.Getenv("AZURE_TENANT_ID")
 
-	fmt.Fprintf(stderr, "Authenticated with Azure (subscription: %s, resource group: %s)\n", subscriptionID, resourceGroup)
+	_, _ = fmt.Fprintf(stderr, "Authenticated with Azure (subscription: %s, resource group: %s)\n", subscriptionID, resourceGroup)
 
 	return &Credentials{
 		SubscriptionID: subscriptionID,
