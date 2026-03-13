@@ -40,7 +40,7 @@ go mod tidy && go build -o twitter-mcp .
 # stdio transport (Claude Desktop, Cursor, Windsurf)
 ./twitter-mcp --transport stdio
 
-# SSE transport (remote clients, Cloud Run)
+# SSE transport (remote clients, Cloud Run, ECS Fargate)
 ./twitter-mcp --transport sse --port 8080
 ```
 
@@ -57,14 +57,19 @@ go mod tidy && go build -o twitter-mcp .
 }
 ```
 
-### 4. Deploy to Cloud Run
+### 4. Deploy
+
+Deploy generated MCP servers with one command. Pick your cloud:
 
 ```bash
-gcloud auth application-default login
+# Google Cloud Run
 mint deploy gcp --project my-project --source ./twitter-mcp
+
+# AWS ECS Fargate
+mint deploy aws --region us-east-1 --source ./twitter-mcp
 ```
 
-One command. Builds the container, pushes to Artifact Registry, deploys to Cloud Run, verifies health, prints the live URL. No Dockerfile edits, no `gcloud run deploy`, no YAML.
+No Dockerfile edits, no infrastructure YAML, no manual container registry setup. Mint handles container builds, registry, IAM roles, load balancing, health checks, and prints the live URL.
 
 ## What Gets Generated
 
@@ -115,9 +120,7 @@ mint transform convert swagger2.yaml -o openapi3.yaml
 
 All commands support `--format json` for CI integration.
 
-## Deploy to Cloud Run
-
-Deploy generated MCP servers to Google Cloud Run with security defaults enforced out of the box.
+## Deploy to Google Cloud Run
 
 ```bash
 # Basic deploy
@@ -145,6 +148,40 @@ mint deploy gcp --project my-project --source ./server --ci
 ```
 
 **Security defaults** -- every deployment gets IAM authentication, distroless containers, non-root execution, TLS 1.2+, and Secret Manager integration. No configuration needed.
+
+## Deploy to AWS ECS Fargate
+
+```bash
+# Basic deploy
+mint deploy aws --region us-east-1 --source ./server
+
+# With secrets from Secrets Manager
+mint deploy aws --region us-east-1 --source ./server \
+  --secret API_KEY=my-api-key \
+  --secret DB_PASSWORD=my-db-pass
+
+# Custom resource sizing
+mint deploy aws --region us-east-1 --source ./server \
+  --cpu 512 --memory 1024
+
+# Canary rollout (10% traffic via ALB weighted target groups)
+mint deploy aws --region us-east-1 --source ./server --canary 10
+
+# Promote canary to 100%
+mint deploy aws --region us-east-1 --service my-server --promote
+
+# Check status
+mint deploy status --provider aws --region us-east-1 --service my-server
+
+# Rollback to previous task definition
+mint deploy rollback --provider aws --region us-east-1 --service my-server
+
+# Generate GitHub Actions workflow with OIDC federation
+mint deploy aws --region us-east-1 --source ./server \
+  --ci --repo myorg/myrepo
+```
+
+Mint creates the ECR repository, CodeBuild project, ECS cluster, task definitions, ALB, IAM roles, and Secrets Manager entries automatically. The `--ci` flag also sets up a GitHub Actions OIDC identity provider for keyless authentication.
 
 ## Generation Options
 
@@ -200,7 +237,7 @@ Override with `--auth-header` and `--auth-env`.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture overview, and guidelines.
 
 ## License
 
