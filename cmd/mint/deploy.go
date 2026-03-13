@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sirerun/mint/internal/deploy"
+	awspkg "github.com/sirerun/mint/internal/deploy/aws"
 	"github.com/sirerun/mint/internal/deploy/gcp"
 )
 
@@ -28,6 +29,8 @@ func runDeploy(args []string) int {
 	}
 
 	switch args[0] {
+	case "aws":
+		return runDeployAWS(args[1:])
 	case "gcp":
 		return runDeployGCP(args[1:])
 	case "status":
@@ -41,6 +44,149 @@ func runDeploy(args []string) int {
 		fmt.Fprintf(os.Stderr, "unknown deploy subcommand: %s\n\nRun 'mint deploy help' for usage.\n", args[0])
 		return 1
 	}
+}
+
+func runDeployAWS(args []string) int {
+	fs := flag.NewFlagSet("mint deploy aws", flag.ContinueOnError)
+
+	region := fs.String("region", os.Getenv("AWS_REGION"), "AWS region")
+	source := fs.String("source", "", "Path to generated server directory")
+	serviceName := fs.String("service", "", "ECS service name (default: derived from source dir)")
+	imageTag := fs.String("image-tag", "latest", "Container image tag")
+	public := fs.Bool("public", false, "Allow public access via ALB")
+	canary := fs.Int("canary", 0, "Traffic percentage for canary (0 = full rollout)")
+	vpcID := fs.String("vpc-id", "", "AWS VPC ID (default: default VPC)")
+	timeout := fs.Int("timeout", 300, "ECS stop timeout in seconds")
+	maxInstances := fs.Int("max-instances", 10, "ECS desired count / auto-scaling max")
+	minInstances := fs.Int("min-instances", 0, "ECS auto-scaling min")
+	ci := fs.Bool("ci", false, "Generate CI workflow")
+	promote := fs.Bool("promote", false, "Promote canary to 100%")
+	debugImage := fs.Bool("debug-image", false, "Use alpine base for debugging")
+	cpu := fs.String("cpu", "256", "CPU units (256, 512, 1024, 2048, 4096)")
+	memory := fs.String("memory", "512", "Memory in MB (512, 1024, 2048, etc.)")
+
+	var secrets stringSliceFlag
+	fs.Var(&secrets, "secret", "Secret mapping ENV_VAR=secret-name (repeatable)")
+
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 1
+	}
+
+	// Parse secret mappings.
+	var secretMappings []deploy.SecretMapping
+	for _, s := range secrets {
+		m, err := deploy.ParseSecretFlag(s)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		secretMappings = append(secretMappings, m)
+	}
+
+	config := deploy.DeployConfig{
+		Region:       *region,
+		SourceDir:    *source,
+		ServiceName:  *serviceName,
+		ImageTag:     *imageTag,
+		Public:       *public,
+		Canary:       *canary,
+		VPC:          *vpcID,
+		Timeout:      *timeout,
+		MaxInstances: *maxInstances,
+		MinInstances: *minInstances,
+		Secrets:      secretMappings,
+		CI:           *ci,
+		Promote:      *promote,
+		DebugImage:   *debugImage,
+		CPU:          *cpu,
+		Memory:       *memory,
+	}
+
+	ctx := context.Background()
+
+	// Authenticate with AWS and resolve account ID.
+	creds, err := awspkg.Authenticate(ctx, *region, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Set ProjectID from AWS account ID so Validate() passes.
+	config.ProjectID = creds.AccountID
+
+	if err := config.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Instantiate SDK adapters.
+	ecrAdapter := awspkg.NewECRAdapter(creds.Config)
+	codebuildAdapter := awspkg.NewCodeBuildAdapter(creds.Config)
+	ecsAdapter := awspkg.NewECSAdapter(creds.Config)
+	albAdapter := awspkg.NewALBAdapter(creds.Config)
+	iamAdapter := awspkg.NewIAMAdapter(creds.Config)
+	secretsAdapter := awspkg.NewSecretsManagerAdapter(creds.Config)
+
+	// Assemble the Deployer with bridge adapters.
+	deployer := &awspkg.Deployer{
+		Registry: awspkg.NewRegistryBridge(ecrAdapter),
+		Builder:  awspkg.NewBuildBridge(codebuildAdapter, config.ServiceName),
+		ECS:      awspkg.NewECSBridge(ecsAdapter),
+		IAM:      awspkg.NewIAMBridge(iamAdapter),
+		Secrets:  awspkg.NewSecretsBridge(secretsAdapter, os.Stderr),
+		Health:   awspkg.NewHealthBridge(awspkg.NewHealthChecker(nil)),
+		Stderr:   os.Stderr,
+	}
+
+	// Run deployment.
+	result, err := deployer.Deploy(ctx, awspkg.DeployInput{
+		Config:   &config,
+		SpecHash: config.ImageTag,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Handle canary traffic management.
+	if config.Canary > 0 && result.TaskARN != "" {
+		_, canaryErr := awspkg.SetCanaryTraffic(ctx, albAdapter, awspkg.CanaryConfig{
+			ServiceName:   config.ServiceName,
+			VPCID:         *vpcID,
+			CanaryPercent: config.Canary,
+		})
+		if canaryErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: canary traffic split failed: %v\n", canaryErr)
+		} else {
+			fmt.Fprintf(os.Stderr, "Canary: %d%% traffic routed to new task\n", config.Canary)
+		}
+	}
+
+	if config.Promote {
+		// TODO: PromoteCanary requires load balancer ARN and canary target group ARN
+		// which need to be resolved from the service context.
+		fmt.Fprintln(os.Stderr, "warning: --promote for AWS requires load balancer context (not yet wired)")
+	}
+
+	// Handle CI workflow generation.
+	if config.CI {
+		// TODO: AWS CI workflow generation and OIDC setup is being implemented by another teammate.
+		fmt.Fprintln(os.Stderr, "warning: --ci for AWS is not yet implemented")
+	}
+
+	// Print service URL to stdout.
+	fmt.Println(result.ServiceURL)
+
+	if !result.Healthy {
+		fmt.Fprintln(os.Stderr, "Warning: service health check failed")
+	}
+
+	_ = debugImage // reserved for Dockerfile base image selection
+
+	return 0
 }
 
 func runDeployGCP(args []string) int {
@@ -358,7 +504,26 @@ Usage:
   mint deploy <target> [flags]
 
 Targets:
+  aws         Deploy to AWS ECS Fargate
   gcp         Deploy to Google Cloud Run
+
+Flags for 'aws':
+  --region <region>      AWS region (or set AWS_REGION)
+  --source <dir>         Path to generated server directory (required)
+  --service <name>       ECS service name (default: derived from source dir)
+  --image-tag <tag>      Container image tag (default: latest)
+  --public               Allow public access via ALB
+  --canary <percent>     Traffic percentage for canary (0 = full rollout)
+  --vpc-id <id>          AWS VPC ID (default: default VPC)
+  --timeout <seconds>    ECS stop timeout in seconds (default: 300)
+  --max-instances <n>    ECS desired count / auto-scaling max (default: 10)
+  --min-instances <n>    ECS auto-scaling min (default: 0)
+  --secret <mapping>     Secret mapping ENV_VAR=secret-name (repeatable)
+  --ci                   Generate CI workflow
+  --promote              Promote canary to 100%%
+  --debug-image          Use alpine base for debugging
+  --cpu <units>          CPU units (default: 256)
+  --memory <mb>          Memory in MB (default: 512)
 
 Flags for 'gcp':
   --project <id>         GCP project ID (or set GOOGLE_CLOUD_PROJECT)
