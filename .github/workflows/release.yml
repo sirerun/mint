@@ -10,6 +10,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      HAS_HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,11 +34,14 @@ jobs:
           rm -rf .semrel .generated-go-semantic-release-changelog.md
           git fetch --tags
 
-      - uses: goreleaser/goreleaser-action@v6
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v6
         if: steps.semrel.outputs.version != ''
         with:
           version: latest
-          args: release --clean
+          args: >-
+            release --clean
+            ${{ env.HAS_HOMEBREW_TOKEN != 'true' && '--skip=brews' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.semrel.outputs.version }}

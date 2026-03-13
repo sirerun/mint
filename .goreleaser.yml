@@ -30,7 +30,6 @@ brews:
       owner: sirerun
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    skip_upload: auto
     homepage: "https://github.com/sirerun/mint"
     description: "Generate MCP servers from OpenAPI specs"
     license: "Apache-2.0"
