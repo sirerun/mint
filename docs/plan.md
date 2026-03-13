@@ -79,12 +79,12 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E30: Azure Deploy Package Scaffold
 
-- [ ] T30.1 Create `internal/deploy/azure/` package with Deployer struct and orchestrator interfaces  Owner: TBD  Est: 1h
+- [x] T30.1 Create `internal/deploy/azure/` package with Deployer struct and orchestrator interfaces  Owner: TBD  Est: 1h
   - Dependencies: none
   - AC: Package compiles. Deployer struct defined with interface fields: RegistryProvisioner, ImageBuilder, ServiceDeployer, IAMConfigurator, SecretProvisioner, HealthProber. DeployInput/DeployOutput defined.
   - Decision rationale: docs/adr/008-azure-container-apps-deployment-target.md
 
-- [ ] T30.2 Define SDK client interfaces for Azure services  Owner: TBD  Est: 1h
+- [x] T30.2 Define SDK client interfaces for Azure services  Owner: TBD  Est: 1h
   - Dependencies: T30.1
   - AC: Interfaces defined: ACRClient (Azure Container Registry), ContainerAppClient, ManagedEnvironmentClient, KeyVaultClient, RBACClient. Each in a separate file.
 
@@ -122,7 +122,7 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T30.2
   - AC: Implements RBACClient. Assigns AcrPull role to Container App managed identity. Configures Key Vault access policies.
 
-- [ ] T31.6 Authentication helper (`auth.go`)  Owner: TBD  Est: 45m
+- [x] T31.6 Authentication helper (`auth.go`)  Owner: TBD  Est: 45m
   - Dependencies: none
   - AC: Resolves Azure credentials via SDK default chain (env, CLI, managed identity). Returns subscription ID, resource group, and tenant ID.
 
@@ -152,7 +152,7 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T31.2
   - AC: Creates new revision with canary traffic percentage. PromoteCanary shifts 100% to canary revision. Uses Container Apps native traffic splitting.
 
-- [ ] T32.4 Health check (`healthcheck.go`)  Owner: TBD  Est: 30m
+- [x] T32.4 Health check (`healthcheck.go`)  Owner: TBD  Est: 30m
   - Dependencies: none
   - AC: HTTP health probe with exponential backoff (same pattern as GCP/AWS).
 
@@ -204,12 +204,12 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E35: Managed Hosting CLI Client
 
-- [ ] T35.1 Create `internal/deploy/managed/` package with API client  Owner: TBD  Est: 1.5h
+- [x] T35.1 Create `internal/deploy/managed/` package with API client  Owner: TBD  Est: 1.5h
   - Dependencies: none
   - AC: Package compiles. HostingClient interface defined with methods: Deploy, Status, Delete, ListServers. HTTP client implementation targeting `api.sire.run/v1/hosting`.
   - Decision rationale: docs/adr/009-managed-mcp-hosting-platform.md
 
-- [ ] T35.2 Implement source upload (tarball creation and upload)  Owner: TBD  Est: 1h
+- [x] T35.2 Implement source upload (tarball creation and upload)  Owner: TBD  Est: 1h
   - Dependencies: T35.1
   - AC: Creates tar.gz of source directory, uploads via multipart POST to hosting API. Shows upload progress on stderr.
 
@@ -221,7 +221,7 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T35.1
   - AC: `mint deploy managed status --service foo` shows service info. `mint deploy managed list` shows all servers. `mint deploy managed delete --service foo` removes server.
 
-- [ ] T35.5 Authentication via API token  Owner: TBD  Est: 45m
+- [x] T35.5 Authentication via API token  Owner: TBD  Est: 45m
   - Dependencies: T35.1
   - AC: Reads SIRE_API_TOKEN from env or `~/.config/mint/credentials`. `mint login` prompts for token and saves it. Clear error when token is missing.
 
@@ -255,16 +255,16 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E37: Registry Index and CLI
 
-- [ ] T37.1 Create `internal/registry/` package with index types  Owner: TBD  Est: 1h
+- [x] T37.1 Create `internal/registry/` package with index types  Owner: TBD  Est: 1h
   - Dependencies: none
   - AC: Package compiles. RegistryEntry struct: Name, Description, Tags, SpecURL, AuthType, AuthEnvVar, MinMintVersion. RegistryIndex struct: Version, Entries.
   - Decision rationale: docs/adr/010-mcp-server-registry.md
 
-- [ ] T37.2 Implement index fetching and caching  Owner: TBD  Est: 1h
+- [x] T37.2 Implement index fetching and caching  Owner: TBD  Est: 1h
   - Dependencies: T37.1
   - AC: Fetches registry index JSON from GitHub raw URL. Caches locally at `~/.cache/mint/registry.json` with TTL of 1 hour. Falls back to cache when offline.
 
-- [ ] T37.3 Implement search command  Owner: TBD  Est: 45m
+- [x] T37.3 Implement search command  Owner: TBD  Est: 45m
   - Dependencies: T37.2
   - AC: `mint registry search <query>` fuzzy-matches name, description, and tags. Outputs table with name, description, auth type. Supports `--format json`.
 
@@ -350,7 +350,7 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: none
   - AC: `mint deploy <provider> --domain api.example.com` configures custom domain with managed TLS. Works on GCP (Cloud Run domain mapping), AWS (ALB + ACM certificate), Azure (Container Apps custom domain + managed certificate).
 
-- [ ] T40.4 Graceful shutdown handling  Owner: TBD  Est: 1h
+- [x] T40.4 Graceful shutdown handling  Owner: TBD  Est: 1h
   - Dependencies: none
   - AC: Generated servers handle SIGTERM gracefully: drain in-flight SSE connections, close HTTP listener, exit within --timeout seconds. Update Go templates in `templates/mcp-go/`.
 
