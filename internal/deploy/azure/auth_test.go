@@ -44,7 +44,7 @@ func TestAuthenticate(t *testing.T) {
 			subscriptionID: "sub-123",
 			resourceGroup:  "my-rg",
 			credErr:        fmt.Errorf("no credentials available"),
-			wantErr:        "Azure credentials not found",
+			wantErr:        "azure credentials not found",
 		},
 		{
 			name:           "successful authentication",
