@@ -26,9 +26,12 @@ internal/
   overlay/          OpenAPI Overlay application
   transform/        Spec transformation (filter, cleanup, format, Swagger 2.0 convert)
   color/            Terminal color utilities
-  deploy/           Deploy configuration model and validation
+  deploy/           Deploy configuration model, validation, shared domain validation
   deploy/gcp/       GCP Cloud Run deployment (interfaces, business logic, adapters)
   deploy/aws/       AWS ECS Fargate deployment (interfaces, business logic, adapters)
+  deploy/azure/     Azure Container Apps deployment (interfaces, business logic, adapters)
+  deploy/managed/   Managed hosting API client (deploy, status, list, delete)
+  registry/         MCP server registry (index, search, list, install)
 templates/mcp-go/   Reference copies of Go templates
 examples/           Petstore, merge, overlay examples
 testdata/           Test OpenAPI specs
@@ -86,9 +89,49 @@ Each layer is separated by Go interfaces, making everything testable with mocks.
 - `internal/deploy/aws/workflow.go`, `oidc.go` -- CI workflow generation and OIDC identity provider setup.
 - `internal/deploy/aws/healthcheck.go` -- HTTP health probe with exponential backoff.
 
-**Adapter architecture pattern (both providers):**
+**Azure Container Apps deployment:**
+- `internal/deploy/azure/deploy.go` -- Deployer struct with 5 orchestrator interfaces: ACRClient, ContainerAppClient, ManagedEnvironmentClient, KeyVaultClient, RBACClient.
+- `internal/deploy/azure/*.go` -- Interface definitions for each Azure service.
+- `internal/deploy/azure/*_adapter.go` -- SDK adapters using `github.com/Azure/azure-sdk-for-go/sdk`.
+- `internal/deploy/azure/adapters.go` -- Bridge adapter layer.
+- `internal/deploy/azure/auth.go` -- Azure credential resolution via `azidentity.NewDefaultAzureCredential()`.
+- `internal/deploy/azure/status.go`, `rollback.go`, `canary.go` -- Container Apps revision-based traffic splitting (same model as Cloud Run).
+- `internal/deploy/azure/workflow.go`, `oidc.go` -- GitHub Actions workflow with OIDC federated identity.
+- `internal/deploy/azure/autoscale.go` -- KEDA scale rules for HTTP concurrent requests.
+- `internal/deploy/azure/observability.go` -- Log Analytics workspace configuration.
+- `internal/deploy/azure/domain.go` -- Custom domain with managed certificate.
+- Decision rationale: docs/adr/008-azure-container-apps-deployment-target.md.
+
+**Managed hosting:**
+- `internal/deploy/managed/client.go` -- HostingClient interface (Deploy, Status, Delete, ListServers). HTTP client targeting `api.sire.run/v1/hosting`.
+- `internal/deploy/managed/upload.go` -- CreateSourceTarball + multipart upload with progress.
+- `internal/deploy/managed/auth.go` -- LoadToken from env/file, SaveToken. `mint login` command.
+- `internal/deploy/managed/deploy.go` -- DeployFromSource with polling (exponential backoff).
+- `internal/deploy/managed/format.go` -- FormatStatus, FormatServerList (table/JSON).
+- Decision rationale: docs/adr/009-managed-mcp-hosting-platform.md.
+
+**MCP server registry:**
+- `internal/registry/types.go` -- RegistryEntry (Name, Description, Tags, SpecURL, AuthType, AuthEnvVar, MinMintVersion), RegistryIndex.
+- `internal/registry/index.go` -- FetchIndex from GitHub raw URL, cached at `~/.cache/mint/registry.json` with 1-hour TTL, offline fallback.
+- `internal/registry/search.go` -- Fuzzy search with scoring (name=1.0, contains=0.8, tag=0.6, description=0.4).
+- `internal/registry/list.go` -- List with tag filtering.
+- `internal/registry/install.go` -- Downloads OpenAPI spec from SpecURL, prints post-install instructions for `mint mcp generate`.
+- Registry data: `sirerun/mcp-registry` GitHub repo with 20 curated API entries.
+- Decision rationale: docs/adr/010-mcp-server-registry.md (includes relationship to official MCP registry).
+
+**Shared deploy components:**
+- `internal/deploy/domain.go` -- ValidateDomain function used by all providers for `--domain` flag.
+
+**Production hardening (all providers):**
+- Auto-scaling: GCP (Cloud Run native), AWS (Application Auto Scaling with CPU target tracking), Azure (KEDA HTTP concurrent requests).
+- Custom domains: `--domain` flag with managed TLS on all providers.
+- Graceful shutdown: Generated servers handle SIGTERM/SIGINT with configurable timeout.
+- Observability: GCP (Cloud Logging labels), AWS (CloudWatch Logs + Container Insights), Azure (Log Analytics).
+
+**Adapter architecture pattern (all providers):**
 - CloudRunAdapter (GCP) is split into 4 sub-adapter structs because Go does not allow methods with the same name but different return types on one struct. See docs/adr/005-gcp-sdk-adapter-pattern.md.
 - AWS adapters extract narrow interfaces (e.g., `ecsAPI`, `elbv2API`) for the underlying SDK clients, enabling unit testing of adapter methods without real AWS credentials.
+- Azure adapters follow the same narrow-interface pattern as AWS.
 
 ### Key Dependencies
 
@@ -98,6 +141,7 @@ Each layer is separated by Go interfaces, making everything testable with mocks.
 | mark3labs/mcp-go | Go MCP SDK | Generated servers only |
 | cloud.google.com/go/* | GCP SDK (multiple services) | mint binary (GCP adapters) |
 | github.com/aws/aws-sdk-go-v2/* | AWS SDK v2 (multiple services) | mint binary (AWS adapters) |
+| github.com/Azure/azure-sdk-for-go/sdk/* | Azure SDK (multiple services) | mint binary (Azure adapters) |
 
 ### AWS Service Mapping
 
@@ -109,6 +153,18 @@ Each layer is separated by Go interfaces, making everything testable with mocks.
 | (ALB for traffic) | Elastic Load Balancing v2 | `aws-sdk-go-v2/service/elasticloadbalancingv2` |
 | Secret Manager | Secrets Manager | `aws-sdk-go-v2/service/secretsmanager` |
 | IAM | IAM | `aws-sdk-go-v2/service/iam` |
+
+### Azure Service Mapping
+
+| GCP Service | Azure Equivalent | Azure SDK Module |
+|-------------|-----------------|-----------------|
+| Artifact Registry | Azure Container Registry | `azcontainerregistry` |
+| Cloud Build | ACR Tasks | `azcontainerregistry` |
+| Cloud Run | Container Apps | `armappcontainers` |
+| Cloud Run traffic split | Container Apps revisions | `armappcontainers` |
+| Secret Manager | Key Vault | `azsecrets` |
+| IAM | Azure RBAC | `armauthorization` |
+| Workload Identity | Federated Identity Credential | `armauthorization` |
 
 ### CI/CD
 
@@ -153,12 +209,19 @@ A task is done when:
 |------|-------------|
 | cmd/mint/main.go | CLI entry point and subcommand dispatch |
 | cmd/mint/mcp.go | `mint mcp generate` command |
-| cmd/mint/deploy.go | Deploy CLI dispatch (aws, gcp, status, rollback) |
+| cmd/mint/deploy.go | Deploy CLI dispatch (aws, azure, gcp, managed, status, rollback) |
+| cmd/mint/deploy_managed.go | Managed hosting CLI (deploy, status, list, delete) |
+| cmd/mint/registry.go | Registry CLI (search, list, install) |
 | internal/deploy/config.go | DeployConfig, validation, SecretMapping |
+| internal/deploy/domain.go | ValidateDomain shared by all providers |
 | internal/deploy/gcp/deploy.go | GCP Deployer orchestrator (8 interface deps) |
 | internal/deploy/gcp/adapters.go | GCP bridge adapters |
 | internal/deploy/aws/deploy.go | AWS Deployer orchestrator (6 interface deps) |
 | internal/deploy/aws/adapters.go | AWS bridge adapters |
+| internal/deploy/azure/deploy.go | Azure Deployer orchestrator (5 interface deps) |
+| internal/deploy/azure/adapters.go | Azure bridge adapters |
+| internal/deploy/managed/client.go | Managed hosting API client |
+| internal/registry/index.go | Registry index fetch + cache |
 | internal/mcpgen/model.go | MCP model structs |
 | internal/mcpgen/converter.go | OpenAPI-to-MCP model converter |
 | internal/mcpgen/golang/generate.go | Go code generation orchestrator |
@@ -184,10 +247,17 @@ A task is done when:
 | M16: AWS Status/Rollback/Canary | 2026-03 | Status, rollback, canary business logic with unit tests |
 | M17: AWS CLI Wired | 2026-03 | deploy aws, status --provider aws, rollback --provider aws |
 | M18: AWS CI Wired | 2026-03 | Workflow generation, OIDC setup, --ci and --promote flags |
+| M19: Azure Scaffold | 2026-03 | Azure Deployer compiles, orchestration tested with mocks |
+| M20: Azure Adapters Complete | 2026-03 | All 5 Azure SDK adapters + bridge layer, 100% coverage |
+| M21: Azure CLI Wired | 2026-03 | deploy azure, status, rollback, canary, CI workflow generation |
+| M22: Managed Hosting Client | 2026-03 | deploy managed sends to API, returns URL |
+| M23: Registry Live | 2026-03 | registry search/install works with 20 curated APIs |
 
 ## References
 
 - MCP Specification: https://modelcontextprotocol.io
+- Official MCP Registry: https://registry.modelcontextprotocol.io (pre-built servers; complementary to mint registry)
 - OpenAPI Specification: https://spec.openapis.org/oas/v3.1.0
 - pb33f/libopenapi: https://github.com/pb33f/libopenapi
 - mark3labs/mcp-go: https://github.com/mark3labs/mcp-go
+- Mint Registry: https://github.com/sirerun/mcp-registry (OpenAPI spec catalog for mint mcp generate)
