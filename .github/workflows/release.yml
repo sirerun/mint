@@ -41,7 +41,7 @@ jobs:
           version: latest
           args: >-
             release --clean
-            ${{ env.HAS_HOMEBREW_TOKEN != 'true' && '--skip=brews' || '' }}
+            ${{ env.HAS_HOMEBREW_TOKEN != 'true' && '--skip=homebrew' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.semrel.outputs.version }}
