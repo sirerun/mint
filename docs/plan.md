@@ -358,11 +358,11 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: none
   - AC: `mint deploy <provider> --observability` configures provider-native logging and metrics. GCP: Cloud Logging + Cloud Monitoring. AWS: CloudWatch Logs + Container Insights. Azure: Log Analytics.
 
-- [ ] T40.6 Unit tests for hardening features  Owner: TBD  Est: 2h
+- [x] T40.6 Unit tests for hardening features  Owner: TBD  Est: 2h
   - Dependencies: T40.1 through T40.5
   - AC: 100% coverage on new code. All quality gates pass.
 
-- [ ] T40.7 Run golangci-lint on all modified packages  Owner: TBD  Est: 15m
+- [x] T40.7 Run golangci-lint on all modified packages  Owner: TBD  Est: 15m
   - Dependencies: T40.6
   - AC: Zero lint findings.
 

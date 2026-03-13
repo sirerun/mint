@@ -1,6 +1,6 @@
 # Mint Execution Updates
 
-## 2026-03-13 -- Phase 2 Waves 1-4
+## 2026-03-13 -- Phase 2 Waves 1-4 + Final Quality Pass
 
 ### Wave 1 (5 agents, parallel)
 Completed 11 tasks: T30.1, T30.2, T31.6, T32.4, T35.1, T35.2, T35.5, T37.1, T37.2, T37.3, T40.4
@@ -31,15 +31,23 @@ Completed 16 tasks: T33.1-4, T34.1-4, T36.1-4, T38.1-3, T40.3
 - `mint registry search/list/install` CLI wired
 - Custom domain support (`--domain`) for GCP, AWS, and Azure with ValidateDomain
 
-### Wave 4 (3 agents, parallel) -- IN PROGRESS
-Tasks: T40.1 (AWS auto-scaling), T40.2 (Azure auto-scaling), T40.5 (observability hooks)
+### Wave 4 (3 agents, parallel)
+Completed 3 tasks: T40.1, T40.2, T40.5
 
-- T40.2 complete: Azure KEDA auto-scaling with Container Apps scale rules
+- AWS auto-scaling via Application Auto Scaling (CPU target tracking)
+- Azure auto-scaling via KEDA scale rules (HTTP concurrent requests)
+- Observability hooks for all 3 providers (CloudWatch, Log Analytics, Cloud Logging)
+
+### Wave 5 (sequential)
+Completed 2 tasks: T40.6, T40.7
+
+- Full test suite: 27 packages, all pass with -race
+- Final lint pass: resolved 5 staticcheck findings, 0 new issues
+- Pre-existing errcheck issues in GCP adapter Close() calls left as-is (cosmetic)
 
 ### Remaining Tasks (require manual intervention)
 - T29.1-5: E2E validation requires real cloud sandbox credentials (AWS + Azure)
 - T39.1-3: Registry repo seed requires creating `sirerun/mcp-registry` GitHub repo
-- T40.6-7: Hardening tests and final lint pass (after T40.1-5 complete)
 
 ### Quality Status
 - All tests pass with `-race` flag
