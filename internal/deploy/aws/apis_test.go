@@ -30,7 +30,7 @@ func TestRequiredServicesContainsExpectedServices(t *testing.T) {
 }
 
 func TestCheckRequiredServicesSignature(t *testing.T) {
-	var fn func(ctx context.Context, checker ServiceChecker, region string) error = CheckRequiredServices
+	var fn = CheckRequiredServices
 	_ = fn
 }
 

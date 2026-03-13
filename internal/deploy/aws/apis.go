@@ -32,7 +32,7 @@ func CheckRequiredServices(ctx context.Context, checker ServiceChecker, region s
 		}
 	}
 	if len(unavailable) > 0 {
-		return fmt.Errorf("required AWS services not accessible in region %s:\n  %s\n\nEnsure your IAM permissions include access to these services and the region supports them.",
+		return fmt.Errorf("required AWS services not accessible in region %s:\n  %s\n\nEnsure your IAM permissions include access to these services and the region supports them",
 			region, strings.Join(unavailable, "\n  "))
 	}
 	return nil

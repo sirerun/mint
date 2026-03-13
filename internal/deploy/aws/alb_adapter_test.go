@@ -8,15 +8,15 @@ import (
 
 // mockALBClient is a test double for ALBClient.
 type mockALBClient struct {
-	createLoadBalancer   func(ctx context.Context, input *CreateLoadBalancerInput) (*LoadBalancer, error)
+	createLoadBalancer    func(ctx context.Context, input *CreateLoadBalancerInput) (*LoadBalancer, error)
 	describeLoadBalancers func(ctx context.Context, names []string) ([]LoadBalancer, error)
-	createTargetGroup    func(ctx context.Context, input *CreateTargetGroupInput) (*TargetGroup, error)
-	describeTargetGroups func(ctx context.Context, names []string) ([]TargetGroup, error)
-	createListener       func(ctx context.Context, input *CreateListenerInput) (*Listener, error)
-	describeListeners    func(ctx context.Context, loadBalancerARN string) ([]Listener, error)
-	modifyListener       func(ctx context.Context, input *ModifyListenerInput) error
-	registerTargets      func(ctx context.Context, targetGroupARN string, targets []Target) error
-	describeTargetHealth func(ctx context.Context, targetGroupARN string) ([]TargetHealth, error)
+	createTargetGroup     func(ctx context.Context, input *CreateTargetGroupInput) (*TargetGroup, error)
+	describeTargetGroups  func(ctx context.Context, names []string) ([]TargetGroup, error)
+	createListener        func(ctx context.Context, input *CreateListenerInput) (*Listener, error)
+	describeListeners     func(ctx context.Context, loadBalancerARN string) ([]Listener, error)
+	modifyListener        func(ctx context.Context, input *ModifyListenerInput) error
+	registerTargets       func(ctx context.Context, targetGroupARN string, targets []Target) error
+	describeTargetHealth  func(ctx context.Context, targetGroupARN string) ([]TargetHealth, error)
 }
 
 func (m *mockALBClient) CreateLoadBalancer(ctx context.Context, input *CreateLoadBalancerInput) (*LoadBalancer, error) {

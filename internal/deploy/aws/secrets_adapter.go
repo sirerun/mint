@@ -102,7 +102,7 @@ func EnsureSecrets(ctx context.Context, client SecretsClient, secrets map[string
 		if err != nil {
 			return nil, fmt.Errorf("create secret %q: %w", secretName, err)
 		}
-		fmt.Fprintf(stderr, "Created secret %q (%s)\n", secretName, info.ARN)
+		_, _ = fmt.Fprintf(stderr, "Created secret %q (%s)\n", secretName, info.ARN)
 		arns = append(arns, info.ARN)
 	}
 	return arns, nil

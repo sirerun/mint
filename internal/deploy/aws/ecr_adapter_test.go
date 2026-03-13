@@ -7,10 +7,10 @@ import (
 )
 
 type mockECRClient struct {
-	describeOut *DescribeRepositoriesOutput
-	describeErr error
-	createOut   *CreateRepositoryOutput
-	createErr   error
+	describeOut  *DescribeRepositoriesOutput
+	describeErr  error
+	createOut    *CreateRepositoryOutput
+	createErr    error
 	createCalled bool
 }
 

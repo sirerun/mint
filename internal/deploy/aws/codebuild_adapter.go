@@ -41,10 +41,10 @@ phases:
 			Type: cbtypes.ArtifactsTypeNoArtifacts,
 		},
 		Environment: &cbtypes.ProjectEnvironment{
-			ComputeType:          cbtypes.ComputeType(input.ComputeType),
-			Image:                aws.String(input.ImageURI),
-			Type:                 cbtypes.EnvironmentTypeLinuxContainer,
-			PrivilegedMode:       aws.Bool(true),
+			ComputeType:              cbtypes.ComputeType(input.ComputeType),
+			Image:                    aws.String(input.ImageURI),
+			Type:                     cbtypes.EnvironmentTypeLinuxContainer,
+			PrivilegedMode:           aws.Bool(true),
 			ImagePullCredentialsType: cbtypes.ImagePullCredentialsTypeServiceRole,
 		},
 	})
@@ -53,9 +53,9 @@ phases:
 
 func (a *CodeBuildAdapter) StartBuild(ctx context.Context, input *StartBuildInput) (*StartBuildOutput, error) {
 	out, err := a.client.StartBuild(ctx, &codebuild.StartBuildInput{
-		ProjectName:    aws.String(input.ProjectName),
-		ImageOverride:  aws.String(input.ImageURI),
-		SourceVersion:  aws.String(input.SourceDir),
+		ProjectName:   aws.String(input.ProjectName),
+		ImageOverride: aws.String(input.ImageURI),
+		SourceVersion: aws.String(input.SourceDir),
 	})
 	if err != nil {
 		return nil, err

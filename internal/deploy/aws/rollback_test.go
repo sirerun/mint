@@ -8,12 +8,12 @@ import (
 
 // mockRollbackClient implements RollbackClient for testing.
 type mockRollbackClient struct {
-	taskDefs      []string
-	listErr       error
-	updateErr     error
-	waitErr       error
-	updateCalls   []UpdateECSServiceInput
-	waitCalls     []waitCall
+	taskDefs    []string
+	listErr     error
+	updateErr   error
+	waitErr     error
+	updateCalls []UpdateECSServiceInput
+	waitCalls   []waitCall
 }
 
 type waitCall struct {

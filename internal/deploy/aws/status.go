@@ -81,11 +81,7 @@ func GetStatus(ctx context.Context, client StatusClient, cluster, serviceName, t
 
 	result.Targets = make([]TargetInfo, len(targets))
 	for i, t := range targets {
-		result.Targets[i] = TargetInfo{
-			TargetID:    t.TargetID,
-			State:       t.State,
-			Description: t.Description,
-		}
+		result.Targets[i] = TargetInfo(t)
 	}
 
 	return result, nil
