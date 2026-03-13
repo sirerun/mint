@@ -26,6 +26,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           changelog-generator-opt: emojis=true
 
+      - name: Clean up semrel artifacts
+        if: steps.semrel.outputs.version != ''
+        run: rm -rf .semrel .generated-go-semantic-release-changelog.md
+
       - uses: goreleaser/goreleaser-action@v6
         if: steps.semrel.outputs.version != ''
         with:
@@ -33,3 +37,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
