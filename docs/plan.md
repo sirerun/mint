@@ -166,37 +166,37 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E33: Azure CLI Wiring
 
-- [ ] T33.1 Add `azure` subcommand to `cmd/mint/deploy.go`  Owner: TBD  Est: 1.5h
+- [x] T33.1 Add `azure` subcommand to `cmd/mint/deploy.go`  Owner: TBD  Est: 1.5h
   - Dependencies: T30.3, T31.7
   - AC: `mint deploy azure` parses flags, instantiates Azure SDK adapters, calls Deployer.Deploy. Flags: --subscription, --resource-group, --region, --source, --service, --image-tag, --public, --canary, --timeout, --max-instances, --min-instances, --secret, --ci, --promote, --cpu, --memory.
 
-- [ ] T33.2 Extend status and rollback with --provider azure  Owner: TBD  Est: 1h
+- [x] T33.2 Extend status and rollback with --provider azure  Owner: TBD  Est: 1h
   - Dependencies: T32.1, T32.2
   - AC: `mint deploy status --provider azure` and `mint deploy rollback --provider azure` work.
 
-- [ ] T33.3 Update deploy help text  Owner: TBD  Est: 30m
+- [x] T33.3 Update deploy help text  Owner: TBD  Est: 30m
   - Dependencies: T33.1, T33.2
   - AC: `mint deploy help` lists aws, azure, and gcp targets.
 
-- [ ] T33.4 Run golangci-lint on cmd/mint/  Owner: TBD  Est: 15m
+- [x] T33.4 Run golangci-lint on cmd/mint/  Owner: TBD  Est: 15m
   - Dependencies: T33.1 through T33.3
   - AC: Zero lint findings.
 
 #### Epic E34: Azure CI Workflow Generation
 
-- [ ] T34.1 Generate GitHub Actions workflow for Azure  Owner: TBD  Est: 1h
+- [x] T34.1 Generate GitHub Actions workflow for Azure  Owner: TBD  Est: 1h
   - Dependencies: T33.1
   - AC: `mint deploy azure --ci` generates `.github/workflows/deploy-azure.yml` with OIDC federated identity using azure/login action.
 
-- [ ] T34.2 OIDC federated identity setup (`oidc.go`)  Owner: TBD  Est: 45m
+- [x] T34.2 OIDC federated identity setup (`oidc.go`)  Owner: TBD  Est: 45m
   - Dependencies: T31.5
   - AC: Creates Azure AD app registration and federated credential for GitHub Actions. Returns client ID and tenant ID.
 
-- [ ] T34.3 Unit tests for E34  Owner: TBD  Est: 45m
+- [x] T34.3 Unit tests for E34  Owner: TBD  Est: 45m
   - Dependencies: T34.1, T34.2
   - AC: 100% coverage for workflow generation and OIDC setup.
 
-- [ ] T34.4 Run golangci-lint on E34 files  Owner: TBD  Est: 15m
+- [x] T34.4 Run golangci-lint on E34 files  Owner: TBD  Est: 15m
   - Dependencies: T34.3
   - AC: Zero lint findings.
 
@@ -235,19 +235,19 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E36: Managed Hosting CLI Wiring
 
-- [ ] T36.1 Add `managed` subcommand to `cmd/mint/deploy.go`  Owner: TBD  Est: 1h
+- [x] T36.1 Add `managed` subcommand to `cmd/mint/deploy.go`  Owner: TBD  Est: 1h
   - Dependencies: T35.3
   - AC: `mint deploy managed --source ./server` uploads, builds, deploys, returns URL. Flags: --source, --service, --public.
 
-- [ ] T36.2 Add `mint login` command  Owner: TBD  Est: 45m
+- [x] T36.2 Add `mint login` command  Owner: TBD  Est: 45m
   - Dependencies: T35.5
   - AC: `mint login` reads token from stdin or --token flag, saves to credentials file.
 
-- [ ] T36.3 Update deploy help text with managed option  Owner: TBD  Est: 15m
+- [x] T36.3 Update deploy help text with managed option  Owner: TBD  Est: 15m
   - Dependencies: T36.1
   - AC: `mint deploy help` lists managed alongside aws, azure, gcp.
 
-- [ ] T36.4 Run golangci-lint on cmd/mint/  Owner: TBD  Est: 15m
+- [x] T36.4 Run golangci-lint on cmd/mint/  Owner: TBD  Est: 15m
   - Dependencies: T36.1 through T36.3
   - AC: Zero lint findings.
 
@@ -286,15 +286,15 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
 
 #### Epic E38: Registry CLI Wiring
 
-- [ ] T38.1 Add `registry` subcommand to `cmd/mint/main.go`  Owner: TBD  Est: 1h
+- [x] T38.1 Add `registry` subcommand to `cmd/mint/main.go`  Owner: TBD  Est: 1h
   - Dependencies: T37.3, T37.4, T37.5
   - AC: `mint registry search`, `mint registry list`, `mint registry install` work end-to-end.
 
-- [ ] T38.2 Update help text  Owner: TBD  Est: 15m
+- [x] T38.2 Update help text  Owner: TBD  Est: 15m
   - Dependencies: T38.1
   - AC: `mint help` lists registry commands.
 
-- [ ] T38.3 Run golangci-lint on cmd/mint/  Owner: TBD  Est: 15m
+- [x] T38.3 Run golangci-lint on cmd/mint/  Owner: TBD  Est: 15m
   - Dependencies: T38.1, T38.2
   - AC: Zero lint findings.
 
@@ -346,7 +346,7 @@ Mint generates MCP servers from OpenAPI specs and deploys them to GCP Cloud Run 
   - Dependencies: T29.3
   - AC: Container Apps KEDA scale rules configured. Scales on HTTP concurrent requests. Unit tests with mock.
 
-- [ ] T40.3 Custom domain support  Owner: TBD  Est: 2h
+- [x] T40.3 Custom domain support  Owner: TBD  Est: 2h
   - Dependencies: none
   - AC: `mint deploy <provider> --domain api.example.com` configures custom domain with managed TLS. Works on GCP (Cloud Run domain mapping), AWS (ALB + ACM certificate), Azure (Container Apps custom domain + managed certificate).
 
