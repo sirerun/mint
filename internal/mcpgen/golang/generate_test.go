@@ -164,6 +164,67 @@ func TestGenerateHealthEndpoint(t *testing.T) {
 	}
 }
 
+func TestGenerateE2E_TwitterAPIv2(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping e2e test in short mode")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go not found in PATH")
+	}
+
+	// Load the real Twitter/X API v2 OpenAPI spec (754KB, 156 operations).
+	result, err := loader.Load("../../../testdata/twitter-v2.json")
+	if err != nil {
+		t.Fatalf("loading twitter spec: %v", err)
+	}
+
+	server, err := mcpgen.Convert(result.Model)
+	if err != nil {
+		t.Fatalf("converting twitter spec: %v", err)
+	}
+
+	if len(server.Tools) < 100 {
+		t.Errorf("expected 100+ tools from Twitter spec, got %d", len(server.Tools))
+	}
+
+	outputDir := t.TempDir()
+
+	if err := Generate(server, outputDir); err != nil {
+		t.Fatalf("Generate() error: %v", err)
+	}
+
+	// Verify all expected files exist.
+	for _, f := range []string{"main.go", "server.go", "tools.go", "client.go", "go.mod", "Dockerfile"} {
+		if _, err := os.Stat(filepath.Join(outputDir, f)); os.IsNotExist(err) {
+			t.Errorf("expected file %s not found", f)
+		}
+	}
+
+	// Verify generated files are non-trivial in size (Twitter spec produces large output).
+	for _, f := range []string{"server.go", "tools.go"} {
+		info, err := os.Stat(filepath.Join(outputDir, f))
+		if err != nil {
+			t.Fatalf("stat %s: %v", f, err)
+		}
+		if info.Size() < 10000 {
+			t.Errorf("%s is only %d bytes; expected large output for 156-operation spec", f, info.Size())
+		}
+	}
+
+	// go mod tidy + go build to verify the generated code compiles.
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = outputDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go mod tidy failed: %v\n%s", err, out)
+	}
+
+	cmd = exec.Command("go", "build", "-buildvcs=false", "./...")
+	cmd.Dir = outputDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go build failed: %v\n%s", err, out)
+	}
+}
+
 func TestExportName(t *testing.T) {
 	tests := []struct {
 		input string
