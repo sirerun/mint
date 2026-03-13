@@ -31,7 +31,9 @@ func ValidateDomain(domain string) error {
 			return fmt.Errorf("domain %q has a label longer than 63 characters", domain)
 		}
 		for i, c := range label {
-			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-') {
+			isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+			isDigit := c >= '0' && c <= '9'
+			if !isLetter && !isDigit && c != '-' {
 				return fmt.Errorf("domain %q contains invalid character %q in label %q", domain, string(c), label)
 			}
 			if c == '-' && (i == 0 || i == len(label)-1) {
