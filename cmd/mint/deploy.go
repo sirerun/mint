@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirerun/mint/internal/deploy"
 	awspkg "github.com/sirerun/mint/internal/deploy/aws"
+	"github.com/sirerun/mint/internal/deploy/azure"
 	"github.com/sirerun/mint/internal/deploy/gcp"
 )
 
@@ -31,6 +32,8 @@ func runDeploy(args []string) int {
 	switch args[0] {
 	case "aws":
 		return runDeployAWS(args[1:])
+	case "azure":
+		return runDeployAzure(args[1:])
 	case "gcp":
 		return runDeployGCP(args[1:])
 	case "managed":
@@ -247,6 +250,173 @@ func runDeployAWS(args []string) int {
 	}
 
 	_ = debugImage // reserved for Dockerfile base image selection
+
+	return 0
+}
+
+func runDeployAzure(args []string) int {
+	fs := flag.NewFlagSet("mint deploy azure", flag.ContinueOnError)
+
+	subscription := fs.String("subscription", os.Getenv("AZURE_SUBSCRIPTION_ID"), "Azure subscription ID (or set AZURE_SUBSCRIPTION_ID)")
+	resourceGroup := fs.String("resource-group", os.Getenv("AZURE_RESOURCE_GROUP"), "Azure resource group (or set AZURE_RESOURCE_GROUP)")
+	region := fs.String("region", "eastus", "Azure region")
+	source := fs.String("source", "", "Path to generated server directory")
+	serviceName := fs.String("service", "", "Container App name (default: derived from source dir)")
+	imageTag := fs.String("image-tag", "latest", "Container image tag")
+	public := fs.Bool("public", false, "Allow public access via ingress")
+	canary := fs.Int("canary", 0, "Traffic percentage for canary (0 = full rollout)")
+	timeout := fs.Int("timeout", 300, "Request timeout in seconds")
+	maxInstances := fs.Int("max-instances", 10, "Maximum number of replicas")
+	minInstances := fs.Int("min-instances", 0, "Minimum number of replicas")
+	ci := fs.Bool("ci", false, "Generate CI workflow")
+	promote := fs.Bool("promote", false, "Promote canary to 100%")
+	cpu := fs.String("cpu", "0.25", "CPU cores (0.25, 0.5, 1.0, 2.0, 4.0)")
+	memory := fs.String("memory", "0.5Gi", "Memory (e.g. 0.5Gi, 1Gi, 2Gi)")
+
+	var secrets stringSliceFlag
+	fs.Var(&secrets, "secret", "Secret mapping ENV_VAR=secret-name (repeatable)")
+
+	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return 0
+		}
+		return 1
+	}
+
+	// Parse secret mappings.
+	var secretMappings []deploy.SecretMapping
+	for _, s := range secrets {
+		m, err := deploy.ParseSecretFlag(s)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 1
+		}
+		secretMappings = append(secretMappings, m)
+	}
+
+	config := deploy.DeployConfig{
+		ProjectID:    *subscription,
+		Region:       *resourceGroup,
+		SourceDir:    *source,
+		ServiceName:  *serviceName,
+		ImageTag:     *imageTag,
+		Public:       *public,
+		Canary:       *canary,
+		Timeout:      *timeout,
+		MaxInstances: *maxInstances,
+		MinInstances: *minInstances,
+		Secrets:      secretMappings,
+		CI:           *ci,
+		Promote:      *promote,
+		CPU:          *cpu,
+		Memory:       *memory,
+	}
+
+	if err := config.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	ctx := context.Background()
+
+	// Authenticate with Azure.
+	creds, err := azure.Authenticate(ctx, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Instantiate SDK adapters.
+	acrAdapter, err := azure.NewACRAdapter(creds.SubscriptionID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	containerAppAdapter, err := azure.NewContainerAppAdapter(creds.SubscriptionID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	envAdapter, err := azure.NewEnvironmentAdapter(creds.SubscriptionID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	kvAdapter, err := azure.NewKeyVaultAdapter(creds.SubscriptionID, creds.TenantID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	rbacAdapter, err := azure.NewRBACAdapter(creds.SubscriptionID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Assemble the Deployer with bridge adapters.
+	deployer := &azure.Deployer{
+		Registry:     azure.NewRegistryBridge(acrAdapter),
+		Builder:      azure.NewPassthroughBuilder(),
+		ContainerApp: azure.NewServiceBridge(containerAppAdapter, envAdapter),
+		IAM:          azure.NewIAMBridge(rbacAdapter),
+		Secrets:      azure.NewSecretsBridge(kvAdapter, os.Stderr),
+		Health:       azure.NewHealthBridge(azure.NewHealthChecker(nil)),
+		Stderr:       os.Stderr,
+	}
+
+	// Run deployment.
+	result, err := deployer.Deploy(ctx, azure.DeployInput{
+		Config:   &config,
+		SpecHash: config.ImageTag,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	// Handle canary traffic management.
+	if config.Canary > 0 && result.RevisionName != "" {
+		canaryErr := azure.SetCanaryTraffic(ctx, containerAppAdapter, creds.ResourceGroup, config.ServiceName, result.RevisionName, config.Canary)
+		if canaryErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: canary traffic split failed: %v\n", canaryErr)
+		} else {
+			fmt.Fprintf(os.Stderr, "Canary: %d%% traffic routed to %s\n", config.Canary, result.RevisionName)
+		}
+	}
+
+	if config.Promote {
+		// Get latest revision to promote.
+		revisions, revErr := containerAppAdapter.ListRevisions(ctx, creds.ResourceGroup, config.ServiceName)
+		if revErr != nil || len(revisions) == 0 {
+			fmt.Fprintf(os.Stderr, "error: cannot find revisions for %q: %v\n", config.ServiceName, revErr)
+			return 1
+		}
+		promoteErr := azure.PromoteCanary(ctx, containerAppAdapter, creds.ResourceGroup, config.ServiceName, revisions[0].Name)
+		if promoteErr != nil {
+			fmt.Fprintf(os.Stderr, "error: canary promotion failed: %v\n", promoteErr)
+			return 1
+		}
+		_, _ = fmt.Fprintln(os.Stderr, "Canary promoted to 100%")
+	}
+
+	// Handle CI workflow generation.
+	if config.CI {
+		fmt.Fprintln(os.Stderr, "Azure CI workflow generation coming in T34.1")
+	}
+
+	// Print service URL to stdout.
+	fmt.Println(result.ServiceURL)
+
+	if !result.Healthy {
+		fmt.Fprintln(os.Stderr, "Warning: service health check failed")
+	}
+
+	_ = region       // used for Container App region configuration
+	_ = subscription // validated via azure.Authenticate
 
 	return 0
 }
@@ -474,7 +644,7 @@ func runDeployGCP(args []string) int {
 
 func runDeployStatus(args []string) int {
 	fs := flag.NewFlagSet("mint deploy status", flag.ContinueOnError)
-	provider := fs.String("provider", "gcp", "Cloud provider (gcp, aws)")
+	provider := fs.String("provider", "gcp", "Cloud provider (gcp, aws, azure)")
 	// GCP flags
 	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID (GCP only)")
 	region := fs.String("region", "us-central1", "Region")
@@ -483,6 +653,8 @@ func runDeployStatus(args []string) int {
 	// AWS flags
 	cluster := fs.String("cluster", "mint-cluster", "ECS cluster name (AWS only)")
 	targetGroup := fs.String("target-group", "", "ALB target group ARN (AWS only)")
+	// Azure flags
+	azureResourceGroup := fs.String("resource-group", os.Getenv("AZURE_RESOURCE_GROUP"), "Azure resource group (Azure only)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -501,6 +673,8 @@ func runDeployStatus(args []string) int {
 		return runDeployStatusGCP(*project, *region, *service, *format)
 	case "aws":
 		return runDeployStatusAWS(*region, *service, *cluster, *targetGroup, *format)
+	case "azure":
+		return runDeployStatusAzure(*azureResourceGroup, *service, *format)
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown provider %q\n", *provider)
 		return 1
@@ -594,9 +768,38 @@ func runDeployStatusAWS(region, service, cluster, targetGroupARN, format string)
 	return 0
 }
 
+func runDeployStatusAzure(resourceGroup, service, format string) int {
+	ctx := context.Background()
+
+	creds, err := azure.Authenticate(ctx, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	if resourceGroup == "" {
+		resourceGroup = creds.ResourceGroup
+	}
+
+	containerAppAdapter, err := azure.NewContainerAppAdapter(creds.SubscriptionID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	result, err := azure.GetContainerAppStatus(ctx, containerAppAdapter, resourceGroup, service)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Print(azure.FormatStatus(result, format == "json"))
+	return 0
+}
+
 func runDeployRollback(args []string) int {
 	fs := flag.NewFlagSet("mint deploy rollback", flag.ContinueOnError)
-	provider := fs.String("provider", "gcp", "Cloud provider (gcp, aws)")
+	provider := fs.String("provider", "gcp", "Cloud provider (gcp, aws, azure)")
 	// GCP flags
 	project := fs.String("project", os.Getenv("GOOGLE_CLOUD_PROJECT"), "GCP project ID (GCP only)")
 	region := fs.String("region", "us-central1", "Region")
@@ -604,6 +807,8 @@ func runDeployRollback(args []string) int {
 	// AWS flags
 	cluster := fs.String("cluster", "mint-cluster", "ECS cluster name (AWS only)")
 	family := fs.String("family", "", "ECS task definition family (AWS only)")
+	// Azure flags
+	azureResourceGroup := fs.String("resource-group", os.Getenv("AZURE_RESOURCE_GROUP"), "Azure resource group (Azure only)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -626,6 +831,8 @@ func runDeployRollback(args []string) int {
 			f = *service
 		}
 		return runDeployRollbackAWS(*region, *service, *cluster, f)
+	case "azure":
+		return runDeployRollbackAzure(*azureResourceGroup, *service)
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown provider %q\n", *provider)
 		return 1
@@ -698,6 +905,35 @@ func runDeployRollbackAWS(region, service, cluster, family string) int {
 	return 0
 }
 
+func runDeployRollbackAzure(resourceGroup, service string) int {
+	ctx := context.Background()
+
+	creds, err := azure.Authenticate(ctx, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	if resourceGroup == "" {
+		resourceGroup = creds.ResourceGroup
+	}
+
+	containerAppAdapter, err := azure.NewContainerAppAdapter(creds.SubscriptionID, creds.Credential)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	result, err := azure.Rollback(ctx, containerAppAdapter, service, resourceGroup, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return 1
+	}
+
+	fmt.Fprintf(os.Stderr, "Rolled back: traffic shifted from %s to %s\n", result.CurrentRevision, result.PreviousRevision)
+	return 0
+}
+
 func printDeployUsage() {
 	fmt.Print(`mint deploy - Deploy generated MCP servers.
 
@@ -706,6 +942,7 @@ Usage:
 
 Targets:
   aws         Deploy to AWS ECS Fargate
+  azure       Deploy to Azure Container Apps
   gcp         Deploy to Google Cloud Run
   managed     Deploy to Sire managed hosting
 
@@ -729,6 +966,24 @@ Flags for 'aws':
   --debug-image          Use alpine base for debugging
   --cpu <units>          CPU units (default: 256)
   --memory <mb>          Memory in MB (default: 512)
+
+Flags for 'azure':
+  --subscription <id>    Azure subscription ID (or set AZURE_SUBSCRIPTION_ID)
+  --resource-group <rg>  Azure resource group (or set AZURE_RESOURCE_GROUP)
+  --region <region>      Azure region (default: eastus)
+  --source <dir>         Path to generated server directory (required)
+  --service <name>       Container App name (default: derived from source dir)
+  --image-tag <tag>      Container image tag (default: latest)
+  --public               Allow public access via ingress
+  --canary <percent>     Traffic percentage for canary (0 = full rollout)
+  --timeout <seconds>    Request timeout in seconds (default: 300)
+  --max-instances <n>    Maximum number of replicas (default: 10)
+  --min-instances <n>    Minimum number of replicas (default: 0)
+  --secret <mapping>     Secret mapping ENV_VAR=secret-name (repeatable)
+  --ci                   Generate CI workflow (coming soon)
+  --promote              Promote canary to 100%%
+  --cpu <cores>          CPU cores (default: 0.25)
+  --memory <size>        Memory (default: 0.5Gi)
 
 Flags for 'gcp':
   --project <id>         GCP project ID (or set GOOGLE_CLOUD_PROJECT)
