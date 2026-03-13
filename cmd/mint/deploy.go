@@ -33,6 +33,8 @@ func runDeploy(args []string) int {
 		return runDeployAWS(args[1:])
 	case "gcp":
 		return runDeployGCP(args[1:])
+	case "managed":
+		return runDeployManaged(args[1:])
 	case "status":
 		return runDeployStatus(args[1:])
 	case "rollback":
@@ -705,6 +707,7 @@ Usage:
 Targets:
   aws         Deploy to AWS ECS Fargate
   gcp         Deploy to Google Cloud Run
+  managed     Deploy to Sire managed hosting
 
 Flags for 'aws':
   --region <region>      AWS region (or set AWS_REGION)
@@ -749,6 +752,17 @@ Flags for 'gcp':
   --debug-image          Use alpine base for debugging
   --no-source-repo       Skip Cloud Source Repositories push
 
-Run 'mint deploy gcp --help' for more information.
+Flags for 'managed':
+  --source <dir>         Path to generated server directory (required)
+  --service <name>       Service name (default: derived from source dir)
+  --public               Allow public access
+  --api-url <url>        Hosting API base URL (or set SIRE_API_URL)
+
+Subcommands for 'managed':
+  managed status --service <name>   Show service status
+  managed list                      List all deployed services
+  managed delete --service <name>   Delete a service
+
+Run 'mint deploy <target> --help' for more information.
 `)
 }

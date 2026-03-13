@@ -71,7 +71,7 @@ Commands:
   overlay     Apply OpenAPI Overlay documents
   transform   Transform specs (filter, cleanup, format)
   deploy      Deploy generated MCP servers
-  login       Authenticate with the Mint registry
+  login       Authenticate with Mint (registry or managed hosting)
   publish     Publish an MCP server to the registry
   install     Install an MCP server from the registry
   seed        Batch-generate MCP servers from a catalog of OpenAPI specs
