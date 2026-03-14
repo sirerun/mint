@@ -48,7 +48,7 @@ Completed 2 tasks: T40.6, T40.7
 ### Wave 6 (1 agent)
 Completed 3 tasks: T39.1, T39.2, T39.3
 
-- Created `sirerun/mcp-registry` public GitHub repo
+- Created Public MCP Registry on GitHub
 - Seeded with 20 API entries (Twitter, GitHub, Stripe, Slack, OpenAI, Anthropic, etc.)
 - Added CI validation workflow (schema check + spec URL reachability)
 

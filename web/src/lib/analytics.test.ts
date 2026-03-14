@@ -1,19 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { buildDeployToSireUrl, trackEvent } from "./analytics";
+import { buildDeployUrl, trackEvent } from "./analytics";
 
-describe("buildDeployToSireUrl", () => {
-  it("returns a sire.run signup URL with correct params", () => {
-    const url = buildDeployToSireUrl("stripe-mcp");
-    expect(url).toContain("https://sire.run/signup?");
+describe("buildDeployUrl", () => {
+  it("returns a deployment URL with correct params", () => {
+    const url = buildDeployUrl("stripe-mcp");
+    expect(url).toContain("https://mintmcp.com/deploy?");
     expect(url).toContain("mcp=stripe-mcp");
     expect(url).toContain("source=mint-registry");
     expect(url).toContain("utm_source=mint-registry");
     expect(url).toContain("utm_medium=cta");
-    expect(url).toContain("utm_campaign=deploy-to-sire");
+    expect(url).toContain("utm_campaign=deploy-managed");
   });
 
   it("encodes special characters in server name", () => {
-    const url = buildDeployToSireUrl("my server+name");
+    const url = buildDeployUrl("my server+name");
     expect(url).toContain("mcp=my+server%2Bname");
   });
 });

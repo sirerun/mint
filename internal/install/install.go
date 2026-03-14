@@ -14,7 +14,7 @@ import (
 )
 
 // DefaultRegistryURL is the default registry API base URL.
-const DefaultRegistryURL = "https://mint.sire.run/api/v1"
+const DefaultRegistryURL = "https://api.mintmcp.com/v1"
 
 // Options controls the install behavior.
 type Options struct {

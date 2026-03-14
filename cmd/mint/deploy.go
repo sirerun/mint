@@ -944,7 +944,7 @@ Targets:
   aws         Deploy to AWS ECS Fargate
   azure       Deploy to Azure Container Apps
   gcp         Deploy to Google Cloud Run
-  managed     Deploy to Sire managed hosting
+  managed     Deploy to the Managed Hosting Platform
 
 Flags for 'aws':
   --region <region>      AWS region (or set AWS_REGION)
@@ -1011,7 +1011,7 @@ Flags for 'managed':
   --source <dir>         Path to generated server directory (required)
   --service <name>       Service name (default: derived from source dir)
   --public               Allow public access
-  --api-url <url>        Hosting API base URL (or set SIRE_API_URL)
+  --api-url <url>        Hosting API base URL (or set MINT_API_URL)
 
 Subcommands for 'managed':
   managed status --service <name>   Show service status

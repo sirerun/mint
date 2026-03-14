@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     title: "Mint Registry",
     description:
       "Discover, publish, and install MCP servers with a single command.",
-    url: "https://mint.sire.run",
+    url: "https://mintmcp.com",
     siteName: "Mint Registry",
     type: "website",
   },
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     description:
       "Discover, publish, and install MCP servers with a single command.",
   },
-  metadataBase: new URL("https://mint.sire.run"),
+  metadataBase: new URL("https://mintmcp.com"),
 };
 
 export default function RootLayout({
@@ -79,15 +79,15 @@ function Footer() {
           <p className="text-sm text-[var(--color-text-secondary)]">
             Powered by{" "}
             <a
-              href="https://sire.run?utm_source=mint-registry&utm_medium=footer&utm_campaign=powered-by"
+              href="https://mintmcp.com/managed?utm_source=mint-registry&utm_medium=footer&utm_campaign=powered-by"
               className="text-[var(--color-accent)] hover:underline"
             >
-              Sire
+              Managed Hosting
             </a>
           </p>
           <div className="flex gap-6 text-sm text-[var(--color-text-secondary)]">
-            <a href="https://sire.run" className="hover:text-[var(--color-text)] transition-colors">
-              Sire
+            <a href="https://mintmcp.com" className="hover:text-[var(--color-text)] transition-colors">
+              Platform
             </a>
             <a href="https://github.com/sirerun/mint" className="hover:text-[var(--color-text)] transition-colors">
               GitHub

@@ -63,6 +63,6 @@ func runPublish(args []string) int {
 	fmt.Printf("  Server ID: %s\n", resp.ServerID)
 	fmt.Printf("  Version:   %s\n", resp.Version)
 	fmt.Printf("  Checksum:  %s\n", resp.Checksum)
-	fmt.Printf("  URL:       https://mint.sire.run/servers/%s\n", resp.ServerID)
+	fmt.Printf("  URL:       https://mintmcp.com/servers/%s\n", resp.ServerID)
 	return 0
 }

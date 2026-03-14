@@ -15,7 +15,7 @@ import (
 	"github.com/sirerun/mint/internal/deploy/managed"
 )
 
-const defaultRegistryURL = "https://mint.sire.run/api/v1"
+const defaultRegistryURL = "https://api.mintmcp.com/v1"
 
 func runLogin(args []string) int {
 	fs := flag.NewFlagSet("mint login", flag.ContinueOnError)

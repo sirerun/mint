@@ -3,7 +3,7 @@ export type AnalyticsEvent =
   | { event: "search"; query: string }
   | { event: "server_view"; server: string; category?: string }
   | { event: "download_click"; server: string }
-  | { event: "deploy_to_sire_click"; server: string }
+  | { event: "deploy_managed_click"; server: string }
   | { event: "signup_conversion"; server: string; source: string };
 
 function getAnalyticsEndpoint(): string {
@@ -36,13 +36,13 @@ export function trackEvent(payload: AnalyticsEvent): void {
   }
 }
 
-export function buildDeployToSireUrl(serverName: string): string {
+export function buildDeployUrl(serverName: string): string {
   const params = new URLSearchParams({
     mcp: serverName,
     source: "mint-registry",
     utm_source: "mint-registry",
     utm_medium: "cta",
-    utm_campaign: "deploy-to-sire",
+    utm_campaign: "deploy-managed",
   });
-  return `https://sire.run/signup?${params}`;
+  return `https://mintmcp.com/deploy?${params}`;
 }

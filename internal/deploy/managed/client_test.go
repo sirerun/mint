@@ -11,7 +11,7 @@ import (
 
 func TestDeploy(t *testing.T) {
 	want := DeployOutput{
-		URL:       "https://my-server.sire.run",
+		URL:       "https://my-server.mintmcp.com",
 		ServiceID: "svc-123",
 		BuildID:   "build-456",
 	}
@@ -81,7 +81,7 @@ func TestStatus(t *testing.T) {
 	createdAt := time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC)
 	want := ServerStatus{
 		ServiceID: "svc-123",
-		URL:       "https://my-server.sire.run",
+		URL:       "https://my-server.mintmcp.com",
 		State:     "running",
 		Revisions: []RevisionInfo{
 			{Name: "rev-1", State: "active", TrafficPercent: 100},
@@ -168,8 +168,8 @@ func TestDeleteHTTPError(t *testing.T) {
 
 func TestListServers(t *testing.T) {
 	want := []ServerSummary{
-		{ServiceID: "svc-1", ServiceName: "server-a", URL: "https://a.sire.run", State: "running"},
-		{ServiceID: "svc-2", ServiceName: "server-b", URL: "https://b.sire.run", State: "stopped"},
+		{ServiceID: "svc-1", ServiceName: "server-a", URL: "https://a.mintmcp.com", State: "running"},
+		{ServiceID: "svc-2", ServiceName: "server-b", URL: "https://b.mintmcp.com", State: "stopped"},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -221,7 +221,7 @@ func TestListServersEmpty(t *testing.T) {
 func TestNewClientDefaultBaseURL(t *testing.T) {
 	client := NewClient("", "tok")
 	hc := client.(*httpClient)
-	if hc.baseURL != "https://api.sire.run/v1/hosting" {
+	if hc.baseURL != "https://api.mintmcp.com/v1/hosting" {
 		t.Errorf("baseURL = %q, want default", hc.baseURL)
 	}
 }

@@ -1,5 +1,5 @@
 import { getServer } from "@/lib/api";
-import { DeployToSireCTA } from "@/components/DeployToSireCTA";
+import { DeployManagedCTA } from "@/components/DeployManagedCTA";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -135,8 +135,8 @@ export default async function ServerDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Deploy to Sire CTA */}
-          <DeployToSireCTA serverName={server.name} />
+          {/* Deploy Managed CTA */}
+          <DeployManagedCTA serverName={server.name} />
         </aside>
       </div>
     </div>

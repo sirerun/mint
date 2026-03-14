@@ -66,7 +66,7 @@ type httpClient struct {
 // NewClient creates a new HostingClient targeting the given base URL with the given API token.
 func NewClient(baseURL string, token string) HostingClient {
 	if baseURL == "" {
-		baseURL = "https://api.sire.run/v1/hosting"
+		baseURL = "https://api.mintmcp.com/v1/hosting"
 	}
 	return &httpClient{
 		baseURL:    baseURL,

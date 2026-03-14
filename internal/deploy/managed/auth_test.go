@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadTokenFromEnv(t *testing.T) {
-	t.Setenv("SIRE_API_TOKEN", "env-token-123")
+	t.Setenv("MINT_API_TOKEN", "env-token-123")
 
 	token, err := LoadToken()
 	if err != nil {
@@ -20,7 +20,7 @@ func TestLoadTokenFromEnv(t *testing.T) {
 }
 
 func TestLoadTokenFromFile(t *testing.T) {
-	t.Setenv("SIRE_API_TOKEN", "")
+	t.Setenv("MINT_API_TOKEN", "")
 
 	// Override HOME so we read from a temp directory.
 	home := t.TempDir()
@@ -44,7 +44,7 @@ func TestLoadTokenFromFile(t *testing.T) {
 }
 
 func TestLoadTokenEnvTakesPrecedence(t *testing.T) {
-	t.Setenv("SIRE_API_TOKEN", "env-wins")
+	t.Setenv("MINT_API_TOKEN", "env-wins")
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -67,7 +67,7 @@ func TestLoadTokenEnvTakesPrecedence(t *testing.T) {
 }
 
 func TestLoadTokenMissing(t *testing.T) {
-	t.Setenv("SIRE_API_TOKEN", "")
+	t.Setenv("MINT_API_TOKEN", "")
 	t.Setenv("HOME", t.TempDir())
 
 	_, err := LoadToken()
@@ -83,7 +83,7 @@ func TestLoadTokenMissing(t *testing.T) {
 }
 
 func TestLoadTokenEmptyFile(t *testing.T) {
-	t.Setenv("SIRE_API_TOKEN", "")
+	t.Setenv("MINT_API_TOKEN", "")
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)

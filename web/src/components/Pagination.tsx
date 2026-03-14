@@ -17,7 +17,7 @@ export function Pagination({
   for (let i = start; i <= end; i++) pages.push(i);
 
   function href(p: number) {
-    const url = new URL(baseUrl, "https://mint.sire.run");
+    const url = new URL(baseUrl, "https://mintmcp.com");
     url.searchParams.set("page", String(p));
     return `${url.pathname}?${url.searchParams}`;
   }

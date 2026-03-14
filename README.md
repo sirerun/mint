@@ -11,7 +11,7 @@ mint registry search stripe
 # 2. Install and generate it locally
 mint registry install stripe
 
-# 3. Deploy it to Sire Cloud
+# 3. Deploy it to the Managed Hosting Platform
 mint deploy managed --source ./stripe-mcp
 ```
 
@@ -30,7 +30,7 @@ brew install sirerun/tap/mint
 
 ## Public Mint Registry
 
-The [Public Mint Registry](https://mint.sire.run) is the central hub for discovering and sharing MCP servers. It is a curated collection of thousands of OpenAPI specs that can be instantly generated into ready-to-use MCP servers.
+The Public Mint Registry is the central hub for discovering and sharing MCP servers. It is a curated collection of thousands of OpenAPI specs that can be instantly generated into ready-to-use MCP servers.
 
 ### Discover
 
@@ -78,12 +78,12 @@ Every OpenAPI operation becomes an MCP tool. Operation IDs are mapped to tool na
 
 Mint provides multiple deployment paths depending on your needs.
 
-### 1. Managed (Sire Cloud)
+### 1. Managed Hosting
 
-The fastest way to host MCP servers. Deploys to [Sire](https://sire.run) with managed authentication, scaling, and observability.
+The fastest way to host MCP servers with managed authentication, scaling, and observability.
 
 ```bash
-# Login to Sire
+# Login
 mint login
 
 # Deploy
@@ -116,7 +116,7 @@ mint login --github your-handle
 mint publish --dir ./my-mcp-server
 ```
 
-Published servers appear on [mint.sire.run](https://mint.sire.run) and can be installed by anyone using `mint registry install`.
+Published servers appear on the registry and can be installed by anyone using `mint registry install`.
 
 ## OpenAPI Tooling
 
@@ -142,15 +142,6 @@ mint overlay apply api.yaml overlay.yaml
 mint transform filter --tags users api.yaml
 mint transform convert swagger2.yaml -o openapi3.yaml
 ```
-
-## Sire Platform Integration
-
-Mint is the core engine powering **In-Process OpenAPI Dispatch** in the [Sire Platform](https://sire.run). 
-
-Instead of deploying a separate MCP server process, Sire can consume OpenAPI specs directly from the Mint Registry and execute tools in-process. This provides:
-- **Lower Latency:** No network hop between orchestrator and MCP server.
-- **Zero Ops:** No containers to manage or scale.
-- **Secure Credentials:** Auth tokens are injected directly into the dispatch engine from Sire's secure vault.
 
 ## CLI Mode
 

@@ -26,7 +26,7 @@ func runDeployManaged(args []string) int {
 	source := fs.String("source", "", "Path to generated server directory (required)")
 	serviceName := fs.String("service", "", "Service name (default: derived from source dir)")
 	public := fs.Bool("public", false, "Allow public access")
-	apiURL := fs.String("api-url", "", "Hosting API base URL (or set SIRE_API_URL)")
+	apiURL := fs.String("api-url", "", "Hosting API base URL (or set MINT_API_URL)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -49,7 +49,7 @@ func runDeployManaged(args []string) int {
 	// Resolve API URL.
 	baseURL := *apiURL
 	if baseURL == "" {
-		baseURL = os.Getenv("SIRE_API_URL")
+		baseURL = os.Getenv("MINT_API_URL")
 	}
 
 	token, err := managed.LoadToken()
@@ -74,7 +74,7 @@ func runDeployManaged(args []string) int {
 func runDeployManagedStatus(args []string) int {
 	fs := flag.NewFlagSet("mint deploy managed status", flag.ContinueOnError)
 	serviceName := fs.String("service", "", "Service name (required)")
-	apiURL := fs.String("api-url", "", "Hosting API base URL (or set SIRE_API_URL)")
+	apiURL := fs.String("api-url", "", "Hosting API base URL (or set MINT_API_URL)")
 	format := fs.String("format", "", "Output format (json)")
 
 	if err := fs.Parse(args); err != nil {
@@ -91,7 +91,7 @@ func runDeployManagedStatus(args []string) int {
 
 	baseURL := *apiURL
 	if baseURL == "" {
-		baseURL = os.Getenv("SIRE_API_URL")
+		baseURL = os.Getenv("MINT_API_URL")
 	}
 
 	token, err := managed.LoadToken()
@@ -115,7 +115,7 @@ func runDeployManagedStatus(args []string) int {
 
 func runDeployManagedList(args []string) int {
 	fs := flag.NewFlagSet("mint deploy managed list", flag.ContinueOnError)
-	apiURL := fs.String("api-url", "", "Hosting API base URL (or set SIRE_API_URL)")
+	apiURL := fs.String("api-url", "", "Hosting API base URL (or set MINT_API_URL)")
 	format := fs.String("format", "", "Output format (json)")
 
 	if err := fs.Parse(args); err != nil {
@@ -127,7 +127,7 @@ func runDeployManagedList(args []string) int {
 
 	baseURL := *apiURL
 	if baseURL == "" {
-		baseURL = os.Getenv("SIRE_API_URL")
+		baseURL = os.Getenv("MINT_API_URL")
 	}
 
 	token, err := managed.LoadToken()
@@ -152,7 +152,7 @@ func runDeployManagedList(args []string) int {
 func runDeployManagedDelete(args []string) int {
 	fs := flag.NewFlagSet("mint deploy managed delete", flag.ContinueOnError)
 	serviceName := fs.String("service", "", "Service name (required)")
-	apiURL := fs.String("api-url", "", "Hosting API base URL (or set SIRE_API_URL)")
+	apiURL := fs.String("api-url", "", "Hosting API base URL (or set MINT_API_URL)")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -168,7 +168,7 @@ func runDeployManagedDelete(args []string) int {
 
 	baseURL := *apiURL
 	if baseURL == "" {
-		baseURL = os.Getenv("SIRE_API_URL")
+		baseURL = os.Getenv("MINT_API_URL")
 	}
 
 	token, err := managed.LoadToken()

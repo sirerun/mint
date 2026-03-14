@@ -1,6 +1,6 @@
 name: "Mint OpenAPI"
 description: "Lint, validate, and diff OpenAPI specs in pull requests using Mint"
-author: "Sire Run, Inc."
+author: "Mint MCP"
 
 branding:
   icon: "check-circle"
