@@ -1,12 +1,19 @@
 # mint
 
-Turn any API into an MCP server in seconds.
+**The OpenAPI to MCP Platform.**
+
+Turn any API into an MCP server in seconds. Discover, generate, publish, and deploy MCP servers with a single command.
 
 ```bash
-mint mcp generate https://api.twitter.com/2/openapi.json
-```
+# 1. Discover a server in the Public Mint Registry
+mint registry search stripe
 
-That's it. You now have a production-ready Go MCP server with 156 tools, stdio and SSE transports, a built-in CLI for testing, health checks, and a Dockerfile. Connect it to Claude, Cursor, or any MCP client -- or call tools directly from the terminal.
+# 2. Install and generate it locally
+mint registry install stripe
+
+# 3. Deploy it to Sire Cloud
+mint deploy managed --source ./stripe-mcp
+```
 
 ## Install
 
@@ -21,9 +28,29 @@ brew install sirerun/tap/mint
 # Download from https://github.com/sirerun/mint/releases
 ```
 
-## Quick Start
+## Public Mint Registry
 
-### 1. Generate
+The [Public Mint Registry](https://mint.sire.run) is the central hub for discovering and sharing MCP servers. It contains thousands of pre-generated servers for popular SaaS APIs.
+
+### Discover
+
+```bash
+# Search for a server
+mint registry search slack
+
+# List all servers in a category
+mint registry list --tags payments
+```
+
+### Install
+
+Installation downloads the OpenAPI spec and generates a ready-to-use Go MCP server:
+
+```bash
+mint registry install stripe --output ./stripe-mcp
+```
+
+## Generation
 
 Point mint at any OpenAPI 3.x spec -- local file or URL:
 
@@ -31,51 +58,7 @@ Point mint at any OpenAPI 3.x spec -- local file or URL:
 mint mcp generate https://api.twitter.com/2/openapi.json --output ./twitter-mcp
 ```
 
-### 2. Build and run
-
-```bash
-cd twitter-mcp
-go mod tidy && go build -o twitter-mcp .
-
-# stdio transport (Claude Desktop, Cursor, Windsurf)
-./twitter-mcp --transport stdio
-
-# SSE transport (remote clients, Cloud Run, ECS Fargate)
-./twitter-mcp --transport sse --port 8080
-
-# CLI mode -- call tools directly from the terminal
-./twitter-mcp tools
-./twitter-mcp call find_tweets_by_id ids=1234567890
-```
-
-### 3. Connect to Claude Desktop
-
-```json
-{
-  "mcpServers": {
-    "twitter": {
-      "command": "/path/to/twitter-mcp",
-      "args": ["--transport", "stdio"]
-    }
-  }
-}
-```
-
-### 4. Deploy
-
-Deploy generated MCP servers with one command. Pick your cloud:
-
-```bash
-# Google Cloud Run
-mint deploy gcp --project my-project --source ./twitter-mcp
-
-# AWS ECS Fargate
-mint deploy aws --region us-east-1 --source ./twitter-mcp
-```
-
-No Dockerfile edits, no infrastructure YAML, no manual container registry setup. Mint handles container builds, registry, IAM roles, load balancing, health checks, and prints the live URL.
-
-## What Gets Generated
+### What Gets Generated
 
 ```
 twitter-mcp/
@@ -89,18 +72,55 @@ twitter-mcp/
   README.md     Usage instructions for the generated server
 ```
 
-Every OpenAPI operation becomes an MCP tool:
+Every OpenAPI operation becomes an MCP tool. Operation IDs are mapped to tool names, and summaries become descriptions.
 
-| OpenAPI | MCP Tool |
-|---------|----------|
-| `operationId` | Tool name (snake_case) |
-| `summary` | Tool description |
-| Path + query + body params | JSON Schema `inputSchema` |
-| Security schemes | Auth via environment variables |
+## Deploy
+
+Mint provides multiple deployment paths depending on your needs.
+
+### 1. Managed (Sire Cloud)
+
+The fastest way to host MCP servers. Deploys to [Sire](https://sire.run) with managed authentication, scaling, and observability.
+
+```bash
+# Login to Sire
+mint login
+
+# Deploy
+mint deploy managed --source ./twitter-mcp --public
+```
+
+### 2. Self-Hosted (GCP / AWS)
+
+Deploy to your own cloud infrastructure with zero YAML. Mint handles container builds (via Podman), registry setup, IAM roles, and load balancing.
+
+#### Google Cloud Run
+```bash
+mint deploy gcp --project my-project --source ./twitter-mcp
+```
+
+#### AWS ECS Fargate
+```bash
+mint deploy aws --region us-east-1 --source ./twitter-mcp
+```
+
+## Publish & Share
+
+Share your generated MCP servers or raw OpenAPI specs with the community.
+
+```bash
+# Login with GitHub
+mint login --github your-handle
+
+# Publish your project
+mint publish --dir ./my-mcp-server
+```
+
+Published servers appear on [mint.sire.run](https://mint.sire.run) and can be installed by anyone using `mint registry install`.
 
 ## OpenAPI Tooling
 
-mint includes a full OpenAPI toolkit for preparing specs before generation:
+Mint includes a full OpenAPI toolkit for preparing specs before generation:
 
 ```bash
 # Validate structure
@@ -123,70 +143,14 @@ mint transform filter --tags users api.yaml
 mint transform convert swagger2.yaml -o openapi3.yaml
 ```
 
-All commands support `--format json` for CI integration.
+## Sire Platform Integration
 
-## Deploy to Google Cloud Run
+Mint is the core engine powering **In-Process OpenAPI Dispatch** in the [Sire Platform](https://sire.run). 
 
-```bash
-# Basic deploy
-mint deploy gcp --project my-project --source ./server
-
-# With secrets from Secret Manager
-mint deploy gcp --project my-project --source ./server \
-  --secret API_KEY=my-api-key \
-  --secret DB_PASSWORD=my-db-pass
-
-# Canary rollout (10% traffic to new revision)
-mint deploy gcp --project my-project --source ./server --canary 10
-
-# Promote canary to 100%
-mint deploy gcp --promote --project my-project --service my-server
-
-# Check status
-mint deploy status --project my-project --service my-server
-
-# Rollback to previous revision
-mint deploy rollback --project my-project --service my-server
-
-# Generate GitHub Actions workflow with Workload Identity Federation
-mint deploy gcp --project my-project --source ./server --ci
-```
-
-**Security defaults** -- every deployment gets IAM authentication, distroless containers, non-root execution, TLS 1.2+, and Secret Manager integration. No configuration needed.
-
-## Deploy to AWS ECS Fargate
-
-```bash
-# Basic deploy
-mint deploy aws --region us-east-1 --source ./server
-
-# With secrets from Secrets Manager
-mint deploy aws --region us-east-1 --source ./server \
-  --secret API_KEY=my-api-key \
-  --secret DB_PASSWORD=my-db-pass
-
-# Custom resource sizing
-mint deploy aws --region us-east-1 --source ./server \
-  --cpu 512 --memory 1024
-
-# Canary rollout (10% traffic via ALB weighted target groups)
-mint deploy aws --region us-east-1 --source ./server --canary 10
-
-# Promote canary to 100%
-mint deploy aws --region us-east-1 --service my-server --promote
-
-# Check status
-mint deploy status --provider aws --region us-east-1 --service my-server
-
-# Rollback to previous task definition
-mint deploy rollback --provider aws --region us-east-1 --service my-server
-
-# Generate GitHub Actions workflow with OIDC federation
-mint deploy aws --region us-east-1 --source ./server \
-  --ci --repo myorg/myrepo
-```
-
-Mint creates the ECR repository, CodeBuild project, ECS cluster, task definitions, ALB, IAM roles, and Secrets Manager entries automatically. The `--ci` flag also sets up a GitHub Actions OIDC identity provider for keyless authentication.
+Instead of deploying a separate MCP server process, Sire can consume OpenAPI specs directly from the Mint Registry and execute tools in-process. This provides:
+- **Lower Latency:** No network hop between orchestrator and MCP server.
+- **Zero Ops:** No containers to manage or scale.
+- **Secure Credentials:** Auth tokens are injected directly into the dispatch engine from Sire's secure vault.
 
 ## CLI Mode
 
@@ -198,75 +162,17 @@ Generated servers include a built-in CLI for testing and debugging without an MC
 
 # Call a tool with key=value arguments
 ./twitter-mcp call find_tweets_by_id ids=1234567890
-
-# Compact JSON output
-./twitter-mcp call find_tweets_by_id --raw ids=1234567890
-
-# Unknown tool shows available options
-./twitter-mcp call nonexistent
-# Error: unknown tool "nonexistent". Available tools:
-#   find_tweets_by_id    Find Tweets by ID
-#   create_tweet         Create a Tweet
-#   ...
-```
-
-Arguments use `key=value` syntax. Numeric values are auto-converted (`limit=10` passes as a number). Boolean values (`verbose=true`) are converted to booleans. Everything else is a string.
-
-## Generation Options
-
-```bash
-mint mcp generate [flags] <spec-file-or-url>
-```
-
-| Flag | Description |
-|------|-------------|
-| `--output` | Output directory (default: `./server`) |
-| `--include-tags` | Only include operations with these tags |
-| `--exclude-paths` | Exclude paths matching patterns (supports `*`) |
-| `--auth-header` | Override auth header name |
-| `--auth-env` | Override env var for auth token |
-| `--tool-names` | YAML file mapping tool names to custom names |
-
-```bash
-# Generate only user-related endpoints
-mint mcp generate --include-tags users --output ./users-mcp api.yaml
-
-# Exclude internal endpoints
-mint mcp generate --exclude-paths '/internal/*,/admin/*' api.yaml
-
-# Custom auth
-mint mcp generate --auth-header X-Api-Key --auth-env MY_KEY api.yaml
-```
-
-## Authentication
-
-mint reads security schemes from the OpenAPI spec and wires them automatically:
-
-| Scheme | Environment Variable | Header |
-|--------|---------------------|--------|
-| API Key | `MINT_API_KEY` | From spec |
-| Bearer / OAuth2 | `MINT_TOKEN` | `Authorization: Bearer` |
-
-Override with `--auth-header` and `--auth-env`.
-
-## GitHub Action
-
-```yaml
-- uses: sirerun/mint@main
-  with:
-    spec: "api/openapi.yaml"
-    command: "lint"
-    ruleset: "recommended"
 ```
 
 ## Requirements
 
-- Go 1.23+
+- Go 1.25+
+- Podman (for cloud deployments)
 - OpenAPI 3.0/3.1 spec (Swagger 2.0 supported via `mint transform convert`)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture overview, and guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and architecture overview.
 
 ## License
 
