@@ -103,7 +103,7 @@ Each layer is separated by Go interfaces, making everything testable with mocks.
 - Decision rationale: docs/adr/008-azure-container-apps-deployment-target.md.
 
 **Managed hosting:**
-- `internal/deploy/managed/client.go` -- HostingClient interface (Deploy, Status, Delete, ListServers). HTTP client targeting `api.mintmcp.com/v1/hosting`.- `internal/deploy/managed/upload.go` -- CreateSourceTarball + multipart upload with progress.
+- `internal/deploy/managed/client.go` -- HostingClient interface (Deploy, Status, Delete, ListServers). HTTP client targeting `api.mint.sire.run/v1/hosting`.- `internal/deploy/managed/upload.go` -- CreateSourceTarball + multipart upload with progress.
 - `internal/deploy/managed/auth.go` -- LoadToken from env/file, SaveToken. `mint login` command.
 - `internal/deploy/managed/deploy.go` -- DeployFromSource with polling (exponential backoff).
 - `internal/deploy/managed/format.go` -- FormatStatus, FormatServerList (table/JSON).

@@ -38,7 +38,7 @@ func TestDeployFromSourceSuccess(t *testing.T) {
 				t.Errorf("service_name = %q, want %q", input.ServiceName, "my-server")
 			}
 			mustEncode(w, DeployOutput{
-				URL:       "https://my-server.mintmcp.com",
+				URL:       "https://my-server.mint.sire.run",
 				ServiceID: "svc-123",
 				BuildID:   "build-456",
 			})
@@ -49,7 +49,7 @@ func TestDeployFromSourceSuccess(t *testing.T) {
 			status := ServerStatus{ServiceID: "svc-123", State: "building"}
 			if count >= 2 {
 				status.State = "ready"
-				status.URL = "https://my-server.mintmcp.com"
+				status.URL = "https://my-server.mint.sire.run"
 			}
 			mustEncode(w, status)
 
@@ -72,8 +72,8 @@ func TestDeployFromSourceSuccess(t *testing.T) {
 		t.Fatalf("DeployFromSource: %v", err)
 	}
 
-	if out.URL != "https://my-server.mintmcp.com" {
-		t.Errorf("URL = %q, want %q", out.URL, "https://my-server.mintmcp.com")
+	if out.URL != "https://my-server.mint.sire.run" {
+		t.Errorf("URL = %q, want %q", out.URL, "https://my-server.mint.sire.run")
 	}
 	if out.ServiceID != "svc-123" {
 		t.Errorf("ServiceID = %q, want %q", out.ServiceID, "svc-123")

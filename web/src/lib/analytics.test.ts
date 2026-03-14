@@ -4,7 +4,7 @@ import { buildDeployUrl, trackEvent } from "./analytics";
 describe("buildDeployUrl", () => {
   it("returns a deployment URL with correct params", () => {
     const url = buildDeployUrl("stripe-mcp");
-    expect(url).toContain("https://mintmcp.com/deploy?");
+    expect(url).toContain("https://mint.sire.run/deploy?");
     expect(url).toContain("mcp=stripe-mcp");
     expect(url).toContain("source=mint-registry");
     expect(url).toContain("utm_source=mint-registry");

@@ -4,7 +4,7 @@ import { DeployManagedCTA } from "./DeployManagedCTA";
 
 vi.mock("@/lib/analytics", () => ({
   buildDeployUrl: (name: string) =>
-    `https://mintmcp.com/deploy?mcp=${name}&source=mint-registry&utm_source=mint-registry&utm_medium=cta&utm_campaign=deploy-managed`,
+    `https://mint.sire.run/deploy?mcp=${name}&source=mint-registry&utm_source=mint-registry&utm_medium=cta&utm_campaign=deploy-managed`,
   trackEvent: vi.fn(),
 }));
 
@@ -14,7 +14,7 @@ describe("DeployManagedCTA", () => {
     const link = screen.getByTestId("deploy-managed-cta");
     expect(link).toHaveAttribute(
       "href",
-      expect.stringContaining("mintmcp.com/deploy")
+      expect.stringContaining("mint.sire.run/deploy")
     );
     expect(link).toHaveAttribute(
       "href",

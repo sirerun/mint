@@ -10,7 +10,7 @@ import (
 func TestFormatStatusHuman(t *testing.T) {
 	status := &ServerStatus{
 		ServiceID: "svc-123",
-		URL:       "https://my-server.mintmcp.com",
+		URL:       "https://my-server.mint.sire.run",
 		State:     "running",
 		Revisions: []RevisionInfo{
 			{Name: "rev-1", State: "active", TrafficPercent: 80},
@@ -23,7 +23,7 @@ func TestFormatStatusHuman(t *testing.T) {
 
 	checks := []string{
 		"svc-123",
-		"https://my-server.mintmcp.com",
+		"https://my-server.mint.sire.run",
 		"running",
 		"2026-03-13 10:00:00 UTC",
 		"REVISION",
@@ -44,7 +44,7 @@ func TestFormatStatusHuman(t *testing.T) {
 func TestFormatStatusJSON(t *testing.T) {
 	status := &ServerStatus{
 		ServiceID: "svc-123",
-		URL:       "https://my-server.mintmcp.com",
+		URL:       "https://my-server.mint.sire.run",
 		State:     "running",
 		Revisions: []RevisionInfo{
 			{Name: "rev-1", State: "active", TrafficPercent: 100},
@@ -72,7 +72,7 @@ func TestFormatStatusJSON(t *testing.T) {
 func TestFormatStatusNoRevisions(t *testing.T) {
 	status := &ServerStatus{
 		ServiceID: "svc-456",
-		URL:       "https://other.mintmcp.com",
+		URL:       "https://other.mint.sire.run",
 		State:     "building",
 		CreatedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
@@ -89,8 +89,8 @@ func TestFormatStatusNoRevisions(t *testing.T) {
 
 func TestFormatServerListHuman(t *testing.T) {
 	servers := []ServerSummary{
-		{ServiceID: "svc-1", ServiceName: "server-a", URL: "https://a.mintmcp.com", State: "running"},
-		{ServiceID: "svc-2", ServiceName: "server-b", URL: "https://b.mintmcp.com", State: "stopped"},
+		{ServiceID: "svc-1", ServiceName: "server-a", URL: "https://a.mint.sire.run", State: "running"},
+		{ServiceID: "svc-2", ServiceName: "server-b", URL: "https://b.mint.sire.run", State: "stopped"},
 	}
 
 	out := FormatServerList(servers, false)
@@ -102,7 +102,7 @@ func TestFormatServerListHuman(t *testing.T) {
 		"STATE",
 		"svc-1",
 		"server-a",
-		"https://a.mintmcp.com",
+		"https://a.mint.sire.run",
 		"running",
 		"svc-2",
 		"server-b",
@@ -117,7 +117,7 @@ func TestFormatServerListHuman(t *testing.T) {
 
 func TestFormatServerListJSON(t *testing.T) {
 	servers := []ServerSummary{
-		{ServiceID: "svc-1", ServiceName: "server-a", URL: "https://a.mintmcp.com", State: "running"},
+		{ServiceID: "svc-1", ServiceName: "server-a", URL: "https://a.mint.sire.run", State: "running"},
 	}
 
 	out := FormatServerList(servers, true)

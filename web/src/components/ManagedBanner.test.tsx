@@ -16,14 +16,14 @@ describe("ManagedBanner", () => {
   it("links to managed hosting with utm params", () => {
     render(<ManagedBanner />);
     const managedLink = screen.getByRole("link", { name: /Managed Hosting/i });
-    expect(managedLink.getAttribute("href")).toContain("mintmcp.com/managed");
+    expect(managedLink.getAttribute("href")).toContain("mint.sire.run/managed");
     expect(managedLink.getAttribute("href")).toContain("utm_source=mint-registry");
   });
 
   it("renders Get started CTA linking to signup", () => {
     render(<ManagedBanner />);
     const cta = screen.getByRole("link", { name: /Get started for free/i });
-    expect(cta.getAttribute("href")).toContain("mintmcp.com/signup");
+    expect(cta.getAttribute("href")).toContain("mint.sire.run/signup");
     expect(cta.getAttribute("href")).toContain("source=mint-registry");
   });
 

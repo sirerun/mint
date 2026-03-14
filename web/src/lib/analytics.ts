@@ -44,5 +44,5 @@ export function buildDeployUrl(serverName: string): string {
     utm_medium: "cta",
     utm_campaign: "deploy-managed",
   });
-  return `https://mintmcp.com/deploy?${params}`;
+  return `https://mint.sire.run/deploy?${params}`;
 }
