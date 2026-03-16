@@ -13,7 +13,7 @@ go test ./... -race
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - golangci-lint v2+ (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`)
 
 ### Quality Gates
