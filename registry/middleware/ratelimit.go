@@ -9,10 +9,10 @@ import (
 
 // RateLimiter tracks request counts per key within a time window.
 type RateLimiter struct {
-	mu      sync.Mutex
-	counts  map[string]*bucket
-	limit   int
-	window  time.Duration
+	mu     sync.Mutex
+	counts map[string]*bucket
+	limit  int
+	window time.Duration
 }
 
 type bucket struct {

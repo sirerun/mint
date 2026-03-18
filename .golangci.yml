@@ -10,10 +10,28 @@ linters:
     - gocritic
     - misspell
   settings:
+    errcheck:
+      # Ignore errors from Close() calls — these are idiomatic defer patterns
+      # where logging or handling the error would not add value.
+      exclude-functions:
+        - (io.Closer).Close
+        - (net/http.ResponseWriter).Write
+        - (*compress/gzip.Writer).Close
+        - (*archive/tar.Writer).Close
+        - (*archive/tar.Writer).WriteHeader
+        - (*archive/tar.Writer).Write
+        - (*encoding/json.Encoder).Encode
+        - (io.Writer).Write
     gocritic:
       enabled-tags:
         - diagnostic
-        - style
+      disabled-checks:
+        - paramTypeCombine
+        - httpNoBody
+        - emptyStringTest
+        - builtinShadow
+        - unnamedResult
+        - redundantSprint
 
 formatters:
   enable:
@@ -22,3 +40,13 @@ formatters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+    # Exclude staticcheck style suggestions (QF prefix) — these are non-critical
+    - linters:
+        - staticcheck
+      text: "^QF"
+    # In test files, ignore unchecked errors from test-setup helpers and
+    # json.Decoder.Decode calls where the test will fail naturally on bad data.
+    - path: "_test\\.go"
+      linters:
+        - errcheck

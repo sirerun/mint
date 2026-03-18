@@ -26,22 +26,22 @@ type Catalog struct {
 
 // Result holds the outcome of generating a single server.
 type Result struct {
-	Name     string        `json:"name"`
-	Category string        `json:"category"`
-	Success  bool          `json:"success"`
-	Error    string        `json:"error,omitempty"`
-	Duration time.Duration `json:"duration"`
-	ToolCount int          `json:"tool_count,omitempty"`
-	OutputDir string       `json:"output_dir,omitempty"`
+	Name      string        `json:"name"`
+	Category  string        `json:"category"`
+	Success   bool          `json:"success"`
+	Error     string        `json:"error,omitempty"`
+	Duration  time.Duration `json:"duration"`
+	ToolCount int           `json:"tool_count,omitempty"`
+	OutputDir string        `json:"output_dir,omitempty"`
 }
 
 // Report summarizes the full batch generation run.
 type Report struct {
-	Total     int       `json:"total"`
-	Succeeded int       `json:"succeeded"`
-	Failed    int       `json:"failed"`
+	Total     int           `json:"total"`
+	Succeeded int           `json:"succeeded"`
+	Failed    int           `json:"failed"`
 	Duration  time.Duration `json:"duration"`
-	Results   []Result  `json:"results"`
+	Results   []Result      `json:"results"`
 }
 
 // Options controls the batch generation behavior.
@@ -202,7 +202,7 @@ func parseToolCount(output string) int {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "Tools:") {
 			var count int
-			fmt.Sscanf(strings.TrimPrefix(line, "Tools:"), "%d", &count)
+			_, _ = fmt.Sscanf(strings.TrimPrefix(line, "Tools:"), "%d", &count)
 			return count
 		}
 	}

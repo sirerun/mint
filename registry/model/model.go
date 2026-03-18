@@ -29,13 +29,13 @@ type Server struct {
 
 // Version represents a specific version of a server package.
 type Version struct {
-	ID         string    `json:"id"`
-	ServerID   string    `json:"server_id"`
-	Version    string    `json:"version"`
-	ArtifactPath string  `json:"artifact_path"`
-	Checksum   string    `json:"checksum"`
-	Changelog  string    `json:"changelog,omitempty"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID           string    `json:"id"`
+	ServerID     string    `json:"server_id"`
+	Version      string    `json:"version"`
+	ArtifactPath string    `json:"artifact_path"`
+	Checksum     string    `json:"checksum"`
+	Changelog    string    `json:"changelog,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // Star represents a publisher's star on a server.
@@ -57,10 +57,10 @@ type PublishRequest struct {
 
 // ServerListResponse is the paginated response for listing servers.
 type ServerListResponse struct {
-	Servers    []Server `json:"servers"`
-	Total      int      `json:"total"`
-	Page       int      `json:"page"`
-	PageSize   int      `json:"page_size"`
+	Servers  []Server `json:"servers"`
+	Total    int      `json:"total"`
+	Page     int      `json:"page"`
+	PageSize int      `json:"page_size"`
 }
 
 // ErrorResponse is returned on errors.

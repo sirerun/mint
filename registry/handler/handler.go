@@ -143,7 +143,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	written, err := io.Copy(io.MultiWriter(dst, hasher), file)
 	dst.Close()
 	if err != nil {
-		os.Remove(artifactPath)
+		_ = os.Remove(artifactPath)
 		writeError(w, http.StatusInternalServerError, "failed to write artifact")
 		return
 	}
@@ -162,7 +162,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 			Category:       req.Category,
 		}
 		if err := h.DB.CreateServer(srv); err != nil {
-			os.Remove(artifactPath)
+			_ = os.Remove(artifactPath)
 			writeError(w, http.StatusInternalServerError, "failed to create server record: "+err.Error())
 			return
 		}
@@ -176,7 +176,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 			existing.Category = req.Category
 		}
 		if err := h.DB.UpdateServer(existing); err != nil {
-			os.Remove(artifactPath)
+			_ = os.Remove(artifactPath)
 			writeError(w, http.StatusInternalServerError, "failed to update server record")
 			return
 		}
@@ -192,7 +192,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 		Changelog:    req.Changelog,
 	}
 	if err := h.DB.CreateVersion(ver); err != nil {
-		os.Remove(artifactPath)
+		_ = os.Remove(artifactPath)
 		writeError(w, http.StatusInternalServerError, "failed to create version record: "+err.Error())
 		return
 	}

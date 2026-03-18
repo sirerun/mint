@@ -15,9 +15,9 @@ import (
 
 // Common errors.
 var (
-	ErrNotFound       = errors.New("not found")
-	ErrAlreadyExists  = errors.New("already exists")
-	ErrInvalidInput   = errors.New("invalid input")
+	ErrNotFound      = errors.New("not found")
+	ErrAlreadyExists = errors.New("already exists")
+	ErrInvalidInput  = errors.New("invalid input")
 )
 
 // DB wraps a sql.DB with registry operations.

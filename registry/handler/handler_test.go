@@ -596,11 +596,11 @@ func TestNameValidation(t *testing.T) {
 		{"my-server", true},
 		{"stripe-mcp-server", true},
 		{"a1b2c3", true},
-		{"ab", false},   // too short
-		{"Ab", false},   // uppercase
-		{"1ab", false},  // starts with number
-		{"-ab", false},  // starts with hyphen
-		{"ab-", false},  // ends with hyphen
+		{"ab", false},  // too short
+		{"Ab", false},  // uppercase
+		{"1ab", false}, // starts with number
+		{"-ab", false}, // starts with hyphen
+		{"ab-", false}, // ends with hyphen
 	}
 
 	for _, tt := range tests {
