@@ -171,13 +171,13 @@ func (a *CloudBuildAdapter) uploadSource(ctx context.Context, bucket, object, sr
 		// Best-effort close on error path.
 		tw.Close() //nolint:errcheck
 		gw.Close() //nolint:errcheck
-		w.Close() //nolint:errcheck
+		w.Close()  //nolint:errcheck
 		return fmt.Errorf("archive source: %w", err)
 	}
 
 	if err := tw.Close(); err != nil {
 		gw.Close() //nolint:errcheck
-		w.Close() //nolint:errcheck
+		w.Close()  //nolint:errcheck
 		return fmt.Errorf("close tar: %w", err)
 	}
 	if err := gw.Close(); err != nil {
