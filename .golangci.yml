@@ -9,16 +9,15 @@ linters:
     - ineffassign
     - gocritic
     - misspell
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
 
 formatters:
   enable:
     - gofmt
-
-linters-settings:
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
 
 issues:
   max-issues-per-linter: 0
