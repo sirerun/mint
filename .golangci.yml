@@ -32,6 +32,17 @@ linters:
         - builtinShadow
         - unnamedResult
         - redundantSprint
+  exclusions:
+    rules:
+      # Exclude staticcheck style suggestions (QF prefix) — these are non-critical
+      - linters:
+          - staticcheck
+        text: "^QF"
+      # In test files, ignore unchecked errors from test-setup helpers
+      # (tests fail fast without explicit checks anyway).
+      - path: "_test\\.go"
+        linters:
+          - errcheck
 
 formatters:
   enable:
@@ -40,13 +51,3 @@ formatters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    # Exclude staticcheck style suggestions (QF prefix) — these are non-critical
-    - linters:
-        - staticcheck
-      text: "^QF"
-    # In test files, ignore unchecked errors from test-setup helpers and
-    # json.Decoder.Decode calls where the test will fail naturally on bad data.
-    - path: "_test\\.go"
-      linters:
-        - errcheck
