@@ -71,7 +71,7 @@ func Install(opts Options) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("download failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -104,7 +104,7 @@ func resolveServerID(registryURL, name string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("search failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("search failed (%d)", resp.StatusCode)

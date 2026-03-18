@@ -35,7 +35,7 @@ type Handler struct {
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 // writeError writes an error response.
@@ -94,7 +94,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "artifact file is required")
 		return
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	// Generate IDs.
 	serverID := generateID()

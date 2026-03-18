@@ -58,7 +58,7 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("server error: %v", err)
+		log.Printf("server error: %v", err)
 	}
 }
 
@@ -93,7 +93,7 @@ func buildMux(h *handler.Handler, store *db.DB) http.Handler {
 	// Health check.
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck
 	})
 
 	return mux

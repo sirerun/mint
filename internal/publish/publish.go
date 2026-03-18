@@ -217,7 +217,7 @@ func Upload(opts Options) (*PublishResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("upload failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
