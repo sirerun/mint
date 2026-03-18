@@ -141,7 +141,7 @@ func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) {
 	}
 	hasher := sha256.New()
 	written, err := io.Copy(io.MultiWriter(dst, hasher), file)
-	dst.Close()
+	dst.Close() //nolint:errcheck
 	if err != nil {
 		_ = os.Remove(artifactPath)
 		writeError(w, http.StatusInternalServerError, "failed to write artifact")

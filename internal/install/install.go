@@ -134,7 +134,7 @@ func extractTarGz(r io.Reader, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
+	defer gr.Close() //nolint:errcheck
 
 	tr := tar.NewReader(gr)
 	for {
@@ -176,10 +176,10 @@ func extractTarGz(r io.Reader, destDir string) error {
 				return err
 			}
 			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+				f.Close() //nolint:errcheck
 				return err
 			}
-			f.Close()
+			f.Close() //nolint:errcheck
 		}
 	}
 	return nil

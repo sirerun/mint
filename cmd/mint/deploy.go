@@ -515,21 +515,21 @@ func runDeployGCP(args []string) int {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	defer registryAdapter.Close()
+	defer registryAdapter.Close() //nolint:errcheck
 
 	buildAdapter, err := gcp.NewCloudBuildAdapterFromContext(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	defer buildAdapter.Close()
+	defer buildAdapter.Close() //nolint:errcheck
 
 	crAdapter, err := gcp.NewCloudRunAdapter(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	defer crAdapter.Close()
+	defer crAdapter.Close() //nolint:errcheck
 
 	iamPolicyAdapter := gcp.NewIAMPolicyAdapter(crAdapter.Service.ServicesClient())
 	secretAdapter, err := gcp.NewSecretManagerAdapter(ctx)
@@ -537,7 +537,7 @@ func runDeployGCP(args []string) int {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	defer secretAdapter.Close()
+	defer secretAdapter.Close() //nolint:errcheck
 
 	// Assemble the Deployer with bridge adapters.
 	deployer := &gcp.Deployer{
@@ -606,7 +606,7 @@ func runDeployGCP(args []string) int {
 		if iamErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: IAM adapter creation failed: %v\n", iamErr)
 		} else {
-			defer iamSAAdapter.Close()
+			defer iamSAAdapter.Close() //nolint:errcheck
 			wiResult, wiErr := gcp.EnsureWorkloadIdentity(ctx, iamSAAdapter, gcp.WorkloadIdentityConfig{
 				ProjectID:     config.ProjectID,
 				ProjectNumber: "",
@@ -695,7 +695,7 @@ func runDeployStatusGCP(project, region, service, format string) int {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	defer crAdapter.Close()
+	defer crAdapter.Close() //nolint:errcheck
 
 	result, err := gcp.GetStatus(ctx, crAdapter.Status, creds.ProjectID, region, service)
 	if err != nil {
@@ -853,7 +853,7 @@ func runDeployRollbackGCP(project, region, service string) int {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	defer crAdapter.Close()
+	defer crAdapter.Close() //nolint:errcheck
 
 	result, err := gcp.Rollback(ctx, crAdapter.Revision, creds.ProjectID, region, service)
 	if err != nil {

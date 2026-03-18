@@ -38,7 +38,7 @@ func NewCloudBuildAdapterFromContext(ctx context.Context) (*CloudBuildAdapter, e
 	}
 	gcsClient, err := storage.NewClient(ctx)
 	if err != nil {
-		buildClient.Close()
+		buildClient.Close() //nolint:errcheck
 		return nil, fmt.Errorf("creating storage client: %w", err)
 	}
 	return &CloudBuildAdapter{build: buildClient, storage: gcsClient}, nil
@@ -46,7 +46,7 @@ func NewCloudBuildAdapterFromContext(ctx context.Context) (*CloudBuildAdapter, e
 
 // Close releases the underlying clients.
 func (a *CloudBuildAdapter) Close() error {
-	a.storage.Close()
+	a.storage.Close() //nolint:errcheck
 	return a.build.Close()
 }
 
@@ -162,7 +162,7 @@ func (a *CloudBuildAdapter) uploadSource(ctx context.Context, bucket, object, sr
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 
 		_, err = io.Copy(tw, f)
 		return err
@@ -171,17 +171,17 @@ func (a *CloudBuildAdapter) uploadSource(ctx context.Context, bucket, object, sr
 		// Best-effort close on error path.
 		tw.Close()
 		gw.Close()
-		w.Close()
+		w.Close() //nolint:errcheck
 		return fmt.Errorf("archive source: %w", err)
 	}
 
 	if err := tw.Close(); err != nil {
 		gw.Close()
-		w.Close()
+		w.Close() //nolint:errcheck
 		return fmt.Errorf("close tar: %w", err)
 	}
 	if err := gw.Close(); err != nil {
-		w.Close()
+		w.Close() //nolint:errcheck
 		return fmt.Errorf("close gzip: %w", err)
 	}
 	if err := w.Close(); err != nil {

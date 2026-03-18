@@ -37,7 +37,7 @@ func NewCloudRunAdapter(ctx context.Context) (*CloudRunAdapter, error) {
 	}
 	rev, err := run.NewRevisionsClient(ctx)
 	if err != nil {
-		svc.Close()
+		svc.Close() //nolint:errcheck
 		return nil, fmt.Errorf("creating revisions client: %w", err)
 	}
 	clients := &cloudRunClients{services: svc, revisions: rev}

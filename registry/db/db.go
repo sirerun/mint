@@ -34,12 +34,12 @@ func Open(path string) (*DB, error) {
 	}
 	// Enable WAL mode for better concurrent read performance.
 	if _, err := conn.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		conn.Close()
+		conn.Close() //nolint:errcheck
 		return nil, fmt.Errorf("set WAL mode: %w", err)
 	}
 	d := &DB{conn: conn}
 	if err := d.migrate(); err != nil {
-		conn.Close()
+		conn.Close() //nolint:errcheck
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return d, nil
@@ -299,7 +299,7 @@ func (d *DB) SearchServers(query, category, sort string, page, pageSize int) (*m
 	if err != nil {
 		return nil, fmt.Errorf("query servers: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var servers []model.Server
 	for rows.Next() {
@@ -388,7 +388,7 @@ func (d *DB) ListVersions(serverID string) ([]model.Version, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query versions: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var versions []model.Version
 	for rows.Next() {

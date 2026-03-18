@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("open database: %v", err)
 	}
-	defer store.Close()
+	defer store.Close() //nolint:errcheck
 
 	h := &handler.Handler{
 		DB:          store,

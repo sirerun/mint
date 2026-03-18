@@ -131,7 +131,7 @@ func PackageTarball(dir string) (*bytes.Buffer, error) {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 		_, err = io.Copy(tw, f)
 		return err
 	})
