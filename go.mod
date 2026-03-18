@@ -1,6 +1,6 @@
 module github.com/sirerun/mint
 
-go 1.25.0
+go 1.26.1
 
 require (
 	cloud.google.com/go/artifactregistry v1.20.0
