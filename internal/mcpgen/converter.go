@@ -1,6 +1,7 @@
 package mcpgen
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"unicode"
@@ -22,6 +23,7 @@ func Convert(doc *v3high.Document) (*MCPServer, error) {
 	}
 
 	server.Auth = extractAuth(doc)
+	server.Scoping = extractScoping(doc)
 
 	if doc.Paths == nil || doc.Paths.PathItems == nil {
 		return server, nil
@@ -35,6 +37,32 @@ func Convert(doc *v3high.Document) (*MCPServer, error) {
 	}
 
 	return server, nil
+}
+
+// extractScoping reads the spec's top-level `x-sire-scoping` OpenAPI extension
+// and returns it as canonical JSON, or nil when the extension is absent or
+// cannot be decoded. mint does not interpret the value -- it is an opaque
+// passthrough that the Sire scoping layer (ADR 121) parses and validates
+// downstream. Failing to nil (rather than erroring) keeps spec parsing
+// resilient: a malformed extension simply yields no descriptor, which the
+// downstream layer treats as end-user-unavailable (fail-closed default-deny).
+func extractScoping(doc *v3high.Document) json.RawMessage {
+	if doc == nil || doc.Extensions == nil {
+		return nil
+	}
+	node, ok := doc.Extensions.Get("x-sire-scoping")
+	if !ok || node == nil {
+		return nil
+	}
+	var v interface{}
+	if err := node.Decode(&v); err != nil {
+		return nil
+	}
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	return raw
 }
 
 func extractToolsFromPathItem(path string, item *v3high.PathItem) []MCPTool {
