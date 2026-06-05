@@ -1,5 +1,7 @@
 package mcpgen
 
+import "encoding/json"
+
 // MCPServer represents a generated MCP server with its tools and configuration.
 type MCPServer struct {
 	Name        string    `json:"name"`
@@ -8,6 +10,11 @@ type MCPServer struct {
 	BaseURL     string    `json:"base_url"`
 	Tools       []MCPTool `json:"tools"`
 	Auth        *MCPAuth  `json:"auth,omitempty"`
+	// Scoping carries the spec's top-level `x-sire-scoping` OpenAPI extension
+	// (the end-user data-scoping descriptor, Sire ADR 121) as canonical JSON, or
+	// nil when the spec declares no such extension. mint treats it as an opaque
+	// passthrough; the Sire API's scoping layer parses and enforces it.
+	Scoping json.RawMessage `json:"scoping,omitempty"`
 }
 
 // MCPTool represents a single MCP tool derived from an OpenAPI operation.
