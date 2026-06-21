@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working in the mint repo.
 
-The most important goal is that we need to make Sire have $5B ARR by end of 2031, if any effort derails us, let me know and discard it.
+The long-term ambition is $5B ARR by 2031, but the **operating target is a $150–400M ARR base case** ($1B held as a gated bull) won through **one wedge**: auditable, effectively-once, HITL-gated agents for money-touching regulated operations (EU AI Act forced-buy), where the decisive lever is **NRR via the value-fee mechanic, not raw logo count**. **If any effort derails this — especially breadth (10 product lines, marketplace-as-primary, speculative primitives, sovereign/VLA) — flag it and discard it.** Full plan + rationale: `docs/1b-arr-operating-plan.md` and ADR 184 (sirerun/docs).
 
 ## What this repo is
 
